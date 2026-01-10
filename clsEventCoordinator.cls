@@ -17,12 +17,19 @@ Option Explicit
 '   1. Suscribirse a eventos de servicios (WithEvents)
 '   2. Coordinar reacciones entre servicios
 '   3. Actualizar ApplicationContext cuando proceda
+'   4. Propagar eventos entre componentes desacoplados
 '=============================================================================
 
 Private Const MODULE_NAME As String = "clsEventCoordinator"
 
 '=============================================================================
-' REFERENCIAS
+' ESTADO
+'=============================================================================
+
+Private mIsInitialized As Boolean
+
+'=============================================================================
+' REFERENCIAS A INFRAESTRUCTURA
 '=============================================================================
 
 Private mServiceManager As clsServiceManager
@@ -30,10 +37,9 @@ Private mAppContext As clsApplicationContext
 
 '=============================================================================
 ' SUSCRIPCIONES A EVENTOS (WithEvents)
+' Cada servicio que emite eventos tiene su variable WithEvents aqui
 '=============================================================================
-' TODO: Aquí irán TODOS los WithEvents de tus servicios
-'
-' Ejemplo de lo que moveremos desde clsAplicacion:
+
 Private WithEvents ctx As clsExecutionContext
 Attribute ctx.VB_VarHelpID = -1
 Private WithEvents mOpportunities As clsOpportunitiesMgr
@@ -60,36 +66,70 @@ Public Event ReplaceWithNamesInValidations()
 
 
 '=============================================================================
-' INICIALIZACIÓN
+' INICIALIZACION
 '=============================================================================
 
 Public Sub Initialize(ByVal serviceManager As clsServiceManager, _
                       ByVal appContext As clsApplicationContext)
-    
+    On Error GoTo ErrHandler
+
+    If mIsInitialized Then
+        LogWarning MODULE_NAME, "Ya inicializado, ignorando llamada"
+        Exit Sub
+    End If
+
     Set mServiceManager = serviceManager
     Set mAppContext = appContext
-    
+
     LogInfo MODULE_NAME, "Suscribiendo a eventos de servicios..."
-    
-    ' TODO: Obtener servicios y asignar a variables WithEvents
-    '
-    ' Ejemplo:
-     Set mOpportunities = mServiceManager.GetService("IOpportunities")
-     Set mChartManager = mServiceManager.GetService("IChartManager")
-     Set mFSMonitoringCoord = mServiceManager.GetService("IFSMonitoring")
-     Set mRibbonState = mServiceManager.GetService("IRibbonState")
-     Set evRibbon = mServiceManager.GetService("IRibbonEvents")
-     Set ctx = mServiceManager.GetService("IExecutionContext")
-    
-    LogInfo MODULE_NAME, "EventCoordinator inicializado"
+
+    ' Suscribirse a cada servicio que emite eventos
+    ' Nota: Los servicios deben estar registrados antes de esta llamada
+
+    On Error Resume Next  ' Algunos servicios pueden no estar registrados
+
+    Set mOpportunities = mServiceManager.GetService("IOpportunities")
+    If mOpportunities Is Nothing Then LogDebug MODULE_NAME, "IOpportunities no disponible"
+
+    Set mChartManager = mServiceManager.GetService("IChartManager")
+    If mChartManager Is Nothing Then LogDebug MODULE_NAME, "IChartManager no disponible"
+
+    Set mFSMonitoringCoord = mServiceManager.GetService("IFSMonitoring")
+    If mFSMonitoringCoord Is Nothing Then LogDebug MODULE_NAME, "IFSMonitoring no disponible"
+
+    Set mRibbonState = mServiceManager.GetService("IRibbonState")
+    If mRibbonState Is Nothing Then LogDebug MODULE_NAME, "IRibbonState no disponible"
+
+    Set evRibbon = mServiceManager.GetService("IRibbonEvents")
+    If evRibbon Is Nothing Then LogDebug MODULE_NAME, "IRibbonEvents no disponible"
+
+    Set ctx = mServiceManager.GetService("IExecutionContext")
+    If ctx Is Nothing Then LogDebug MODULE_NAME, "IExecutionContext no disponible"
+
+    On Error GoTo ErrHandler
+
+    mIsInitialized = True
+    LogInfo MODULE_NAME, "EventCoordinator inicializado - suscripciones activas"
+
+    Exit Sub
+
+ErrHandler:
+    LogError MODULE_NAME, "Error durante inicializacion", Err.Number, Err.Description
+    Call ReleaseEventSubscriptions
+    Err.Raise Err.Number, MODULE_NAME, Err.Description
 End Sub
+
+'@Description: Indica si el coordinador esta inicializado
+Public Property Get IsInitialized() As Boolean
+    IsInitialized = mIsInitialized
+End Property
 
 '=============================================================================
 ' MANEJADORES DE EVENTOS
 '=============================================================================
-' TODO: Aquí irán TODOS los manejadores de eventos (los 22 que tienes)
+' TODO: Aquï¿½ irï¿½n TODOS los manejadores de eventos (los 22 que tienes)
 '
-' ESTRUCTURA TÍPICA de cada manejador:
+' ESTRUCTURA Tï¿½PICA de cada manejador:
 '
 ' Private Sub mOpportunities_currOpportunityChanged(ByVal Index As Long, ByVal Path As String)
 '     ' 1. Actualizar contexto si procede
@@ -117,7 +157,7 @@ End Sub
 '     ribbonSvc.EnableChartControls
 '
 '     ' 3. Logging
-'     LogInfo MODULE_NAME, "Gráfico activado"
+'     LogInfo MODULE_NAME, "Grï¿½fico activado"
 ' End Sub
 '
 '
@@ -128,12 +168,12 @@ End Sub
 '     Set ribbonSvc = mServiceManager.GetService("IRibbon")
 '     ribbonSvc.DisableChartControls
 '
-'     LogInfo MODULE_NAME, "Gráfico desactivado"
+'     LogInfo MODULE_NAME, "Grï¿½fico desactivado"
 ' End Sub
 '
 '
 ' Private Sub evRibbon_GenerarGraficosDesdeCurvasRto()
-'     ' Coordinar: Llamar al servicio de gráficos
+'     ' Coordinar: Llamar al servicio de grï¿½ficos
 '     Dim chartGen As Object
 '     Set chartGen = mServiceManager.GetService("IChartGenerator")
 '     chartGen.GenerarGraficoSensibilidad
@@ -172,28 +212,50 @@ End Sub
 '     LogInfo MODULE_NAME, "Oportunidad creada: " & subfolderName
 ' End Sub
 '
-' ... Y así con los 22 manejadores de eventos
+' ... Y asï¿½ con los 22 manejadores de eventos
 
 '=============================================================================
 ' LIMPIEZA
 '=============================================================================
 
 Public Sub Dispose()
+    If Not mIsInitialized Then
+        LogDebug MODULE_NAME, "No inicializado, nada que liberar"
+        Exit Sub
+    End If
+
     LogInfo MODULE_NAME, "Liberando EventCoordinator..."
-    
-    ' Liberar referencias WithEvents
-    ' TODO: Cuando añadas los WithEvents, libéralos aquí
-    '
-    ' Ejemplo:
-    ' Set mOpportunities = Nothing
-    ' Set mChartManager = Nothing
-    ' Set mFSMonitoringCoord = Nothing
-    ' Set mRibbonState = Nothing
-    ' Set evRibbon = Nothing
-    ' Set ctx = Nothing
-    
+
+    ' Liberar suscripciones a eventos
+    Call ReleaseEventSubscriptions
+
+    ' Liberar referencias de infraestructura
     Set mAppContext = Nothing
     Set mServiceManager = Nothing
-    
-    LogInfo MODULE_NAME, "EventCoordinator liberado"
+
+    mIsInitialized = False
+
+    LogInfo MODULE_NAME, "EventCoordinator liberado correctamente"
+End Sub
+
+'@Description: Libera todas las suscripciones a eventos (WithEvents)
+Private Sub ReleaseEventSubscriptions()
+    On Error Resume Next
+
+    LogDebug MODULE_NAME, "Liberando suscripciones a eventos..."
+
+    Set mOpportunities = Nothing
+    Set mChartManager = Nothing
+    Set mFSMonitoringCoord = Nothing
+    Set mRibbonState = Nothing
+    Set evRibbon = Nothing
+    Set ctx = Nothing
+
+    LogDebug MODULE_NAME, "Suscripciones liberadas"
+
+    On Error GoTo 0
+End Sub
+
+Private Sub Class_Terminate()
+    Call Dispose
 End Sub

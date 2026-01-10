@@ -16,7 +16,7 @@ Option Explicit
 ' Responsabilidades:
 '   1. Registrar servicios (Singleton o Transient)
 '   2. Resolver servicios (con lazy initialization)
-'   3. Gestionar ciclo de vida (Initialize/Dispose vía IService)
+'   3. Gestionar ciclo de vida (Initialize/Dispose vï¿½a IService)
 '   4. Inyectar dependencias
 '=============================================================================
 
@@ -27,7 +27,7 @@ Private Const MODULE_NAME As String = "clsServiceManager"
 '=============================================================================
 
 Public Enum ServiceLifetime
-    Singleton = 1   ' Una instancia para toda la aplicación
+    Singleton = 1   ' Una instancia para toda la aplicaciï¿½n
     Transient = 2   ' Nueva instancia cada vez que se solicita
 End Enum
 
@@ -39,7 +39,7 @@ Private Type ServiceDescriptor
     ServiceName As String
     Lifetime As ServiceLifetime
     instance As Object              ' Para Singleton
-    factoryFunction As String       ' Para Transient (nombre función)
+    factoryFunction As String       ' Para Transient (nombre funciï¿½n)
     IsInitialized As Boolean
 End Type
 
@@ -50,7 +50,7 @@ Private mServices() As ServiceDescriptor
 Private mServiceCount As Long
 
 '=============================================================================
-' INICIALIZACIÓN
+' INICIALIZACIï¿½N
 '=============================================================================
 
 Private Sub Class_Initialize()
@@ -68,46 +68,77 @@ End Sub
 
 '@Description: Registra un servicio Singleton (una instancia compartida)
 Public Sub RegisterSingleton(ByVal instance As Object)
+    On Error GoTo ErrHandler
+
+    If instance Is Nothing Then
+        Err.Raise 5003, MODULE_NAME, "No se puede registrar un servicio Nothing"
+    End If
+
     Dim instanceService As IService
     Set instanceService = instance
-    
-    ' TODO: añadir chequero de errores
-    
+
+    If instanceService Is Nothing Then
+        Err.Raise 5004, MODULE_NAME, "El objeto no implementa IService"
+    End If
+
+    Dim svcName As String
+    svcName = instanceService.ServiceName
+
+    If Len(Trim(svcName)) = 0 Then
+        Err.Raise 5005, MODULE_NAME, "ServiceName no puede estar vacio"
+    End If
+
     Dim Index As Long
-    Index = FindServiceIndex(instanceService.ServiceName)
-    
+    Index = FindServiceIndex(svcName)
+
     Dim descriptor As ServiceDescriptor
-    
-    descriptor.ServiceName = instanceService.ServiceName
+
+    descriptor.ServiceName = svcName
     descriptor.Lifetime = ServiceLifetime.Singleton
     Set descriptor.instance = instance
     descriptor.IsInitialized = False
     descriptor.factoryFunction = ""
-    
+
     If Index >= 0 Then
-        ' Reemplazar
+        ' Reemplazar servicio existente
         mServices(Index) = descriptor
-        LogInfo MODULE_NAME, "Singleton actualizado: " & ServiceName
+        LogInfo MODULE_NAME, "Singleton actualizado: " & svcName
     Else
-        ' Añadir nuevo
+        ' Agregar nuevo servicio
         Call AddService(descriptor)
-        LogInfo MODULE_NAME, "Singleton registrado: " & ServiceName
+        LogInfo MODULE_NAME, "Singleton registrado: " & svcName
     End If
+
+    Exit Sub
+
+ErrHandler:
+    LogError MODULE_NAME, "Error registrando singleton", Err.Number, Err.Description
+    Err.Raise Err.Number, MODULE_NAME, Err.Description
 End Sub
 
 '@Description: Registra un servicio Transient (nueva instancia cada vez)
 Public Sub RegisterTransient(ByVal ServiceName As String, ByVal factoryFunction As String)
+    On Error GoTo ErrHandler
+
+    If Len(Trim(ServiceName)) = 0 Then
+        Err.Raise 5006, MODULE_NAME, "ServiceName no puede estar vacio para Transient"
+    End If
+
+    If Len(Trim(factoryFunction)) = 0 Then
+        Err.Raise 5007, MODULE_NAME, "factoryFunction no puede estar vacio"
+    End If
+
     Dim Index As Long
     Index = FindServiceIndex(ServiceName)
-    
+
     Dim descriptor As ServiceDescriptor
-    
+
     descriptor.ServiceName = ServiceName
     descriptor.Lifetime = ServiceLifetime.Transient
     Set descriptor.instance = Nothing
     descriptor.IsInitialized = False
     descriptor.factoryFunction = factoryFunction
-    
+
     If Index >= 0 Then
         mServices(Index) = descriptor
         LogInfo MODULE_NAME, "Transient actualizado: " & ServiceName
@@ -115,59 +146,85 @@ Public Sub RegisterTransient(ByVal ServiceName As String, ByVal factoryFunction 
         Call AddService(descriptor)
         LogInfo MODULE_NAME, "Transient registrado: " & ServiceName
     End If
+
+    Exit Sub
+
+ErrHandler:
+    LogError MODULE_NAME, "Error registrando transient: " & ServiceName, Err.Number, Err.Description
+    Err.Raise Err.Number, MODULE_NAME, Err.Description
 End Sub
 
 '=============================================================================
-' RESOLUCIÓN DE SERVICIOS
+' RESOLUCIï¿½N DE SERVICIOS
 '=============================================================================
 
 '@Description: Obtiene un servicio (lo inicializa si es necesario)
 Public Function GetService(ByVal ServiceName As String) As Object
+    On Error GoTo ErrHandler
+
+    If Len(Trim(ServiceName)) = 0 Then
+        Err.Raise 5008, MODULE_NAME, "ServiceName no puede estar vacio"
+    End If
+
     Dim Index As Long
     Index = FindServiceIndex(ServiceName)
-    
+
     If Index < 0 Then
         Err.Raise 5001, MODULE_NAME, "Servicio no registrado: " & ServiceName
     End If
-    
+
     Dim descriptor As ServiceDescriptor
     descriptor = mServices(Index)
-    
+
     Select Case descriptor.Lifetime
         Case ServiceLifetime.Singleton
-            ' Inicializar si hace falta (lazy initialization)
+            ' Lazy initialization para Singletons
             If Not descriptor.IsInitialized Then
                 Call InitializeServiceInstance(descriptor.instance)
                 descriptor.IsInitialized = True
-                mServices(Index) = descriptor ' Guardar estado actualizado
+                mServices(Index) = descriptor
+                LogDebug MODULE_NAME, "Singleton inicializado: " & ServiceName
             End If
-            
+
             Set GetService = descriptor.instance
-            
+
         Case ServiceLifetime.Transient
-            ' Crear nueva instancia
+            ' Crear nueva instancia para Transient
             Dim newInstance As Object
             Set newInstance = CreateInstance(descriptor.factoryFunction)
-            
-            ' Inicializar
+
+            If newInstance Is Nothing Then
+                Err.Raise 5009, MODULE_NAME, "Factory retorno Nothing para: " & ServiceName
+            End If
+
             Call InitializeServiceInstance(newInstance)
-            
+            LogDebug MODULE_NAME, "Transient creado: " & ServiceName
+
             Set GetService = newInstance
+
+        Case Else
+            Err.Raise 5010, MODULE_NAME, "Lifetime desconocido para: " & ServiceName
     End Select
+
+    Exit Function
+
+ErrHandler:
+    LogError MODULE_NAME, "Error obteniendo servicio: " & ServiceName, Err.Number, Err.Description
+    Err.Raise Err.Number, MODULE_NAME, Err.Description
 End Function
 
-'@Description: Verifica si un servicio está registrado
+'@Description: Verifica si un servicio estï¿½ registrado
 Public Function IsRegistered(ByVal ServiceName As String) As Boolean
     IsRegistered = (FindServiceIndex(ServiceName) >= 0)
 End Function
 
-'@Description: Devuelve el número de servicios registrados
+'@Description: Devuelve el nï¿½mero de servicios registrados
 Public Function GetServiceCount() As Long
     GetServiceCount = mServiceCount
 End Function
 
 '=============================================================================
-' GESTIÓN DE CICLO DE VIDA
+' GESTIï¿½N DE CICLO DE VIDA
 '=============================================================================
 
 '@Description: Inicializa un servicio Singleton
@@ -193,28 +250,60 @@ Private Sub InitializeServiceInstance(ByVal service As Object)
     On Error GoTo 0
 End Sub
 
-'@Description: Libera todos los servicios
+'@Description: Libera todos los servicios en orden inverso al registro
 Public Sub DisposeAll()
     On Error Resume Next
+
+    If mServiceCount = 0 Then
+        LogInfo MODULE_NAME, "No hay servicios para liberar"
+        Exit Sub
+    End If
+
     LogInfo MODULE_NAME, "Liberando " & mServiceCount & " servicios..."
-    
+
+    ' Liberar en orden inverso (LIFO) para respetar dependencias
     Dim i As Long
-    For i = 0 To mServiceCount - 1
+    For i = mServiceCount - 1 To 0 Step -1
         With mServices(i)
             If .Lifetime = ServiceLifetime.Singleton Then
-                Call DisposeService(.instance)
+                If Not .instance Is Nothing Then
+                    LogDebug MODULE_NAME, "Liberando: " & .ServiceName
+                    Call DisposeService(.instance)
+                    Set .instance = Nothing
+                End If
             End If
         End With
     Next i
-    
+
     mServiceCount = 0
     Erase mServices
     ReDim mServices(0 To 9)
-    
-    LogInfo MODULE_NAME, "Servicios liberados"
+
+    LogInfo MODULE_NAME, "Todos los servicios liberados correctamente"
 End Sub
 
-'@Description: Libera un servicio específico
+'@Description: Devuelve lista de nombres de servicios registrados (para diagnostico)
+Public Function GetRegisteredServiceNames() As String
+    If mServiceCount = 0 Then
+        GetRegisteredServiceNames = "(ninguno)"
+        Exit Function
+    End If
+
+    Dim result As String
+    Dim i As Long
+
+    For i = 0 To mServiceCount - 1
+        If i > 0 Then result = result & ", "
+        result = result & mServices(i).ServiceName
+        If mServices(i).IsInitialized Then
+            result = result & " [init]"
+        End If
+    Next i
+
+    GetRegisteredServiceNames = result
+End Function
+
+'@Description: Libera un servicio especï¿½fico
 Private Sub DisposeService(ByVal service As Object)
     On Error Resume Next
     
@@ -252,11 +341,11 @@ Private Sub AddService(descriptor As ServiceDescriptor)
     mServiceCount = mServiceCount + 1
 End Sub
 
-'@Description: Crea una instancia usando una función factory
+'@Description: Crea una instancia usando una funciï¿½n factory
 Private Function CreateInstance(ByVal factoryFunction As String) As Object
     On Error GoTo ErrHandler
     
-    ' Llamar a función factory pública
+    ' Llamar a funciï¿½n factory pï¿½blica
     Set CreateInstance = Application.Run(factoryFunction)
     Exit Function
     

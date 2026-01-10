@@ -48,34 +48,66 @@ Private mRibbonState As clsRibbonState
 Private mIsInitialized As Boolean
 
 '=============================================================================
-' INICIALIZACIÓN
+' INICIALIZACIï¿½N
 '=============================================================================
 
 Private Sub Class_Initialize()
-    ' NO hacer nada pesado aquí
+    ' NO hacer nada pesado aquï¿½
     ' Esperar a que ThisWorkbook llame Initialize()
 End Sub
 
 Public Sub Initialize()
-    If mIsInitialized Then Exit Sub
-    
-    LogInfo MODULE_NAME, "Iniciando aplicación..."
-    
-    ' PASO 1: Crear infraestructura
+    On Error GoTo ErrHandler
+
+    If mIsInitialized Then
+        LogWarning MODULE_NAME, "Aplicacion ya inicializada, ignorando llamada"
+        Exit Sub
+    End If
+
+    LogInfo MODULE_NAME, "=== INICIANDO APLICACION ==="
+
+    ' PASO 1: Crear infraestructura base
+    LogDebug MODULE_NAME, "Paso 1/3: Creando infraestructura..."
     Set mServiceManager = New clsServiceManager
     Set mAppContext = New clsApplicationContext
     Set mEventCoordinator = New clsEventCoordinator
-    
-    ' PASO 2: Registrar servicios
+
+    ' PASO 2: Registrar todos los servicios
+    LogDebug MODULE_NAME, "Paso 2/3: Registrando servicios..."
     Call RegisterServices
-    
-    ' PASO 3: Inicializar EventCoordinator (con acceso a servicios)
+
+    ' PASO 3: Inicializar coordinador de eventos
+    LogDebug MODULE_NAME, "Paso 3/3: Inicializando EventCoordinator..."
     mEventCoordinator.Initialize mServiceManager, mAppContext
-    
+
     mIsInitialized = True
-    
-    LogInfo MODULE_NAME, "Aplicación inicializada - " & _
-            mServiceManager.GetServiceCount & " servicios registrados"
+
+    LogInfo MODULE_NAME, "=== APLICACION INICIALIZADA ==="
+    LogInfo MODULE_NAME, "Servicios: " & mServiceManager.GetRegisteredServiceNames
+
+    Exit Sub
+
+ErrHandler:
+    LogCritical MODULE_NAME, "Error fatal durante inicializacion", Err.Number, Err.Description
+    Call CleanupOnError
+    Err.Raise Err.Number, MODULE_NAME, "Fallo en Initialize: " & Err.Description
+End Sub
+
+'@Description: Limpieza en caso de error durante inicializacion
+Private Sub CleanupOnError()
+    On Error Resume Next
+
+    Set mEventCoordinator = Nothing
+    Set mAppContext = Nothing
+
+    If Not mServiceManager Is Nothing Then
+        mServiceManager.DisposeAll
+        Set mServiceManager = Nothing
+    End If
+
+    mIsInitialized = False
+
+    LogWarning MODULE_NAME, "Limpieza de emergencia completada"
 End Sub
 
 '=============================================================================
@@ -83,51 +115,63 @@ End Sub
 '=============================================================================
 
 Private Sub RegisterServices()
-    LogInfo MODULE_NAME, "Registrando servicios..."
-    
+    On Error GoTo ErrHandler
+
+    LogInfo MODULE_NAME, "Registrando servicios Singleton..."
+
     '----------------------------------------------------------------------------
-    ' SINGLETON: Viven toda la aplicación
+    ' SINGLETON: Servicios que viven durante toda la aplicacion
     '----------------------------------------------------------------------------
-    
-    ' ApplicationContext (estado compartido)
+
+    ' 1. ApplicationContext (estado global compartido)
     mServiceManager.RegisterSingleton mAppContext
-    
-    ' servicios existentes (Configuration, FileManager, etc.)
+
+    ' 2. Configuration (rutas y configuracion persistente)
     Set mConfiguration = New clsConfiguration
     mServiceManager.RegisterSingleton mConfiguration
 
+    ' 3. ExecutionContext (contexto de ejecucion actual)
     Set ctx = New clsExecutionContext
     mServiceManager.RegisterSingleton ctx
 
+    ' 4. FileManager (gestion de archivos Excel)
     Set mFileManager = New clsFileManager
     mServiceManager.RegisterSingleton mFileManager
 
+    ' 5. OpportunitiesMgr (gestion de oportunidades)
     Set mOpportunitiesMgr = New clsOpportunitiesMgr
     mServiceManager.RegisterSingleton mOpportunitiesMgr
 
+    ' 6. ChartEventsManager (eventos de graficos)
     Set mChartsMgr = New clsChartEventsManager
     mServiceManager.RegisterSingleton mChartsMgr
 
+    ' 7. FSMonitoringCoord (monitoreo de carpetas)
     Set fsMon = New clsFSMonitoringCoord
     mServiceManager.RegisterSingleton fsMon
 
+    ' 8. RibbonUI (interfaz del ribbon)
     Set mRibbonUI = New clsRibbonUI
     mServiceManager.RegisterSingleton mRibbonUI
 
+    ' 9. RibbonState (estado del ribbon)
     Set mRibbonState = New clsRibbonState
     mServiceManager.RegisterSingleton mRibbonState
-    
+
     '----------------------------------------------------------------------------
-    ' TRANSIENT: Se crean bajo demanda
+    ' TRANSIENT: Servicios creados bajo demanda
+    ' (Descomentar cuando se implementen las clases)
     '----------------------------------------------------------------------------
-    
-    ' TODO: ChartGenerator, CGASINGFormatter, etc.
-    ' Se añadirán cuando creemos esas clases
-    '
-    ' Ejemplo:
     ' mServiceManager.RegisterTransient "IChartGenerator", "CreateChartGenerator"
-    
+    ' mServiceManager.RegisterTransient "ICGASINGFormatter", "CreateCGASINGFormatter"
+
     LogInfo MODULE_NAME, "Servicios registrados: " & mServiceManager.GetServiceCount
+
+    Exit Sub
+
+ErrHandler:
+    LogError MODULE_NAME, "Error registrando servicios", Err.Number, Err.Description
+    Err.Raise Err.Number, MODULE_NAME, "Fallo en RegisterServices: " & Err.Description
 End Sub
 
 '=============================================================================
@@ -166,7 +210,7 @@ End Sub
  End Property
 
 '=============================================================================
-' API PÚBLICA
+' API Pï¿½BLICA
 '=============================================================================
 
 '@Description: Acceso al gestor de servicios
@@ -174,43 +218,63 @@ Public Property Get Services() As clsServiceManager
     Set Services = mServiceManager
 End Property
 
-'@Description: Acceso al contexto de aplicación
+'@Description: Acceso al contexto de aplicaciï¿½n
 Public Property Get Context() As clsApplicationContext
     Set Context = mAppContext
 End Property
 
-'@Description: Indica si la aplicación está inicializada
+'@Description: Indica si la aplicaciï¿½n estï¿½ inicializada
 Public Property Get IsInitialized() As Boolean
     IsInitialized = mIsInitialized
 End Property
 
 '=============================================================================
-' TERMINACIÓN
+' TERMINACION
 '=============================================================================
 
 Public Sub Terminate()
-    If Not mIsInitialized Then Exit Sub
-    
-    LogInfo MODULE_NAME, "Terminando aplicación..."
-    
-    ' Liberar en orden inverso
+    If Not mIsInitialized Then
+        LogDebug MODULE_NAME, "Aplicacion no inicializada, nada que terminar"
+        Exit Sub
+    End If
+
+    LogInfo MODULE_NAME, "=== TERMINANDO APLICACION ==="
+
     On Error Resume Next
-    
+
+    ' 1. Liberar coordinador de eventos primero
     If Not mEventCoordinator Is Nothing Then
+        LogDebug MODULE_NAME, "Liberando EventCoordinator..."
         mEventCoordinator.Dispose
         Set mEventCoordinator = Nothing
     End If
-    
+
+    ' 2. Liberar referencias locales del facade
+    LogDebug MODULE_NAME, "Liberando referencias del facade..."
+    Set mConfiguration = Nothing
+    Set ctx = Nothing
+    Set mFileManager = Nothing
+    Set mOpportunitiesMgr = Nothing
+    Set mChartsMgr = Nothing
+    Set fsMon = Nothing
+    Set mRibbonUI = Nothing
+    Set mRibbonState = Nothing
+
+    ' 3. Liberar todos los servicios (en orden inverso)
     If Not mServiceManager Is Nothing Then
+        LogDebug MODULE_NAME, "Liberando ServiceManager..."
         mServiceManager.DisposeAll
         Set mServiceManager = Nothing
     End If
-    
+
+    ' 4. Liberar contexto
     Set mAppContext = Nothing
-    
+
     mIsInitialized = False
-    
-    LogInfo MODULE_NAME, "Aplicación terminada"
+
+    LogInfo MODULE_NAME, "=== APLICACION TERMINADA ==="
+
+    On Error GoTo 0
 End Sub
 
 Private Sub Class_Terminate()
