@@ -14,6 +14,13 @@ Attribute VB_Exposed = False
 '@IgnoreModule ProcedureNotUsed
 Option Explicit
 
+'=============================================================================
+' IMPLEMENTACION IService
+'=============================================================================
+Implements IService
+
+Private mIsInitialized As Boolean
+
 Private mRutaOportunidades As String
 Private mRutaPlantillas As String
 Private mRutaOfergas As String
@@ -95,14 +102,52 @@ Public Property Let SAM(newSAM As Integer)
     GuardarSAM newSAM
 End Property
 
+'=============================================================================
+' CICLO DE VIDA (modificado para IService)
+'=============================================================================
+
 Private Sub Class_Initialize()
-    LogInfo "clsConfiguration", "[Class_Initialize]"
-    CargarConfiguracionDesdeRegistro
+    ' NO cargar aqui - esperar a IService_Initialize
+    LogInfo "clsConfiguration", "[Class_Initialize] - instancia creada"
 End Sub
 
 Private Sub Class_Terminate()
     LogInfo "clsConfiguration", "[Class_Terminate]"
 End Sub
+
+'-----------------------------------------------------------------------------
+' IService Implementation
+'-----------------------------------------------------------------------------
+
+Private Sub IService_Initialize(ByVal dependencies As Object)
+    If mIsInitialized Then Exit Sub
+    
+    LogInfo "clsConfiguration", "[IService_Initialize] - Cargando configuracion..."
+    
+    ' Cargar configuracion del registro
+    Call CargarConfiguracionDesdeRegistro
+    
+    mIsInitialized = True
+    
+    LogInfo "clsConfiguration", "[IService_Initialize] - Configuracion cargada"
+End Sub
+
+Private Sub IService_Dispose()
+    LogInfo "clsConfiguration", "[IService_Dispose] - Liberando recursos"
+    mIsInitialized = False
+End Sub
+
+Private Property Get IService_IsInitialized() As Boolean
+    IService_IsInitialized = mIsInitialized
+End Property
+
+Private Property Get IService_ServiceName() As String
+    IService_ServiceName = "Configuration"
+End Property
+
+'-----------------------------------------------------------------------------
+' resto del  codigo
+'-----------------------------------------------------------------------------
 
 Private Sub CargarConfiguracionDesdeRegistro()
     On Error GoTo ErrHandler

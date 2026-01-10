@@ -9,22 +9,26 @@ Attribute VB_Name = "modCALLBACKSRibbon"
 Option Explicit
 Option Private Module
 
+Private Const MODULE_NAME As String = "modCALLBACKSRibbon"
+
+
 ' ==========================================
 ' CALLBACK: Se llama al cargar el Ribbon
 ' ==========================================
 Sub RibbonOnLoad(xlRibbon As IRibbonUI)
 Attribute RibbonOnLoad.VB_ProcData.VB_Invoke_Func = " \n0"
-    LogInfo "modCALLBACKSRibbon", "[callback: RibbonOnLoad] - Inicio"
+    LogInfo MODULE_NAME, "[callback: RibbonOnLoad] - Inicio"
     On Error GoTo ErrorHandler
     ' inicializamos la referencia al ribbon en la aplicación
-    App.RibbonHandler = xlRibbon
+    App.RibbonUI.Init xlRibbon
     
-    LogInfo "modCALLBACKSRibbon", "[callback: RibbonOnLoad] - ribbon cargado en la interfaz de excel"
-    App.Ribbon.InvalidarRibbon
+    LogInfo MODULE_NAME, "[callback: RibbonOnLoad] - ribbon cargado en la interfaz de excel"
+    ' TODO: modificar esta llamada: ¿desde donde se obtiene la referencia a
+    App.RibbonUI.InvalidarRibbon
     
     Exit Sub
 ErrorHandler:
-    LogError "modCALLBACKSRibbon", "[callback: RibbonOnLoad] - Error", , Err.Description
+    LogError MODULE_NAME, "[callback: RibbonOnLoad] - Error", , Err.Description
 End Sub
 
 ' ==========================================
@@ -48,7 +52,7 @@ End Sub
 
 Public Sub OnChangeAlturaFilas(control As IRibbonControl)
 Attribute OnChangeAlturaFilas.VB_ProcData.VB_Invoke_Func = " \n0"
-    LogInfo "modCALLBACKSRibbon", "[callback: OnChangeAlturaFilas]"
+    LogInfo MODULE_NAME, "[callback: OnChangeAlturaFilas]"
     On Error GoTo Finalizar
     Call AjustarAltoFilasSegunColor
 Finalizar:
@@ -82,7 +86,7 @@ End Sub
 Public Sub OnVBABackup(control As IRibbonControl)
 Attribute OnVBABackup.VB_ProcData.VB_Invoke_Func = " \n0"
     Call CrearBackupCodigoVBA
-    LogInfo "modCALLBACKSRibbon", "[callback: OnVBABackup] - Creada copia de seguridad del código en " & ThisWorkbook.Path & "\Backups"
+    LogInfo MODULE_NAME, "[callback: OnVBABackup] - Creada copia de seguridad del código en " & ThisWorkbook.Path & "\Backups"
     MsgBox "Creada copia de seguridad del código en " & _
             ThisWorkbook.Path & "\Backups", vbInformation, "Copia de seguridad"
 End Sub
@@ -94,7 +98,7 @@ End Sub
 
 Public Sub OnToggleXLAMVisibility(control As IRibbonControl)
 Attribute OnToggleXLAMVisibility.VB_ProcData.VB_Invoke_Func = " \n0"
-    LogInfo "modCALLBACKSRibbon", "[callback: OnToggleXLAMVisibility]"
+    LogInfo MODULE_NAME, "[callback: OnToggleXLAMVisibility]"
     ThisWorkbook.IsAddin = Not (ThisWorkbook.IsAddin)
 End Sub
 
@@ -156,7 +160,7 @@ End Sub
 '--------------------------------------------------------------
 Public Sub CallbackRefrescarOportunidades(control As IRibbonControl)
 Attribute CallbackRefrescarOportunidades.VB_ProcData.VB_Invoke_Func = " \n0"
-    LogInfo "modCALLBACKSRibbon", "[callback: CallbackRefrescarOportunidades] - control de ribbon activado para actualizar la lista de oportunidades"
+    LogInfo MODULE_NAME, "[callback: CallbackRefrescarOportunidades] - control de ribbon activado para actualizar la lista de oportunidades"
     App.OpportunitiesMgr.actualizarColeccionOportunidades
     App.Ribbon.InvalidarRibbon
     'App.Ribbon.InvalidarControl "ddlOportunidades"
@@ -197,7 +201,7 @@ End Sub
 '--------------------------------------------------------------
 Sub OnOportunidadesSeleccionada(control As IRibbonControl, id As String, Index As Integer)
 Attribute OnOportunidadesSeleccionada.VB_ProcData.VB_Invoke_Func = " \n0"
-    LogInfo "modCALLBACKSRibbon", "[callback: OnOportunidadesSeleccionada] - modificada la oportunidad seleccionada en el control de ribbon"
+    LogInfo MODULE_NAME, "[callback: OnOportunidadesSeleccionada] - modificada la oportunidad seleccionada en el control de ribbon"
     App.OpportunitiesMgr.CurrOpportunity = Index
     ' invalidar, refrescar el UI
     App.Ribbon.InvalidarControl "ddlOportunidades"

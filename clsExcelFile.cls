@@ -311,7 +311,7 @@ Private Function EsFicheroGasVBNet() As Boolean
     Dim re As Object: Set re = CreateObject("VBScript.RegExp")
     re.Pattern = "^[A-Z]{3}\d{5}_\d{2}"          ' patrón esperado en el nombre del fichero
     re.IgnoreCase = True
-    EsFicheroGasVBNet = re.Test(p_wb.Name)
+    EsFicheroGasVBNet = re.test(p_wb.Name)
 End Function
 
 Private Function EsLibroDeTablasCurvasRto() As Boolean
@@ -359,7 +359,7 @@ Public Function EsValidoInvertirEjes() As Boolean
     On Error GoTo SafeExit
     
     Dim ctx As clsExecutionContext
-    Set ctx = App().executionContext
+    Set ctx = App().ExecutionContext
     
     ' 1. Validación segura de contexto mínimo
     If Not ctx.HasWorkbook Then Exit Function

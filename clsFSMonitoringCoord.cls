@@ -10,6 +10,13 @@ Attribute VB_Exposed = False
 '@Folder "3-Aplicac (Coord)"
 Option Explicit
 
+'=============================================================================
+' IMPLEMENTACION IService
+'=============================================================================
+Implements IService
+
+Private mIsInitialized As Boolean
+
 Private Const MODULE_NAME As String = "clsFSMonitoringCoord"
 
 Private WithEvents mFolderWatcher As clsFSWatcher
@@ -46,6 +53,47 @@ Public Event MonitoringError(ByVal folder As String, ByVal errorMessage As Strin
 Public Event MonitoringReconnected(ByVal folder As String, ByVal attempts As Long)
 Public Event MonitoringFailed(ByVal folder As String, ByVal reason As String)
 
+'-----------------------------------------------------------------------------
+' IService Implementation
+'-----------------------------------------------------------------------------
+
+Private Sub IService_Initialize(ByVal dependencies As Object)
+    If mIsInitialized Then Exit Sub
+    
+    LogInfo MODULE_NAME, "[IService_Initialize]"
+    
+    ' Obtener Configuration para iniciar monitoreo
+    Dim svcMgr As clsServiceManager
+    Set svcMgr = dependencies
+    
+    Dim config As clsConfiguration
+    Set config = svcMgr.GetService("IConfiguration")
+    
+    ' Iniciar monitoreo con carpetas configuradas
+    Call IniciarMonitoreo(config.oDicFoldersToWatch)
+    
+    mIsInitialized = True
+End Sub
+
+Private Sub IService_Dispose()
+    LogInfo MODULE_NAME, "[IService_Dispose]"
+    
+    If Not mFolderWatcher Is Nothing Then
+        mFolderWatcher.Dispose
+        Set mFolderWatcher = Nothing
+    End If
+    
+    mIsInitialized = False
+End Sub
+
+Private Property Get IService_IsInitialized() As Boolean
+    IService_IsInitialized = mIsInitialized
+End Property
+
+Private Property Get IService_ServiceName() As String
+    IService_ServiceName = "FSMonitoringCoord"
+End Property
+
 ' -------------------------------------------------------------
 ' Property: Acceso al FolderWatcher (para debugging)
 ' -------------------------------------------------------------
@@ -58,11 +106,8 @@ Private Sub Class_Initialize()
 End Sub
 
 Private Sub Class_Terminate()
-    If Not mFolderWatcher Is Nothing Then
-        LogInfo MODULE_NAME, "[Terminate] - Liberando FolderWatcher COM"
-        mFolderWatcher.Dispose  ' Usar el nuevo metodo Dispose
-        Set mFolderWatcher = Nothing
-    End If
+    LogInfo MODULE_NAME, "[Terminate] - Liberando FolderWatcher COM"
+    Call IService_Dispose
 End Sub
 
 ' -------------------------------------------------------------

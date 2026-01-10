@@ -12,7 +12,7 @@ Private Const MODULE_NAME As String = "clsRibbonEvents"
 
 Public Function App() As clsAplicacion
 Attribute App.VB_Description = "[modMACROAppLifecycle] App (función personalizada). Aplica a: ThisWorkbook"
-Attribute App.VB_ProcData.VB_Invoke_Func = " \n23"
+Attribute App.VB_ProcData.VB_Invoke_Func = " \n20"
     Set App = ThisWorkbook.App
 End Function
 
@@ -49,7 +49,9 @@ Attribute ReiniciarAplicacion.VB_ProcData.VB_Invoke_Func = " \n0"
     ' Verificar estado
     If IsRibbonAvailable() Then
         MsgBox "Aplicación reiniciada correctamente." & vbCrLf & vbCrLf & _
-               App.Ribbon.GetQuickDiagnostics(), vbInformation, "Reinicio Exitoso"
+               App.RibbonUI.GetQuickDiagnostics(), vbInformation, "Reinicio Exitoso"
+               
+               
     Else
         MsgBox "Aplicación reiniciada, pero el Ribbon puede requerir atención adicional." & vbCrLf & _
                "Ejecute 'RecuperarRibbon' si es necesario.", _
@@ -107,7 +109,7 @@ Attribute ToggleRibbonTab.VB_ProcData.VB_Invoke_Func = " \n0"
     On Error GoTo ErrHandler
 
     If Not App() Is Nothing Then
-        App().ToggleRibbonMode
+        App().RibbonMgr.ToggleRibbonMode
     End If
 
     Exit Sub
@@ -145,7 +147,7 @@ Attribute RecuperarRibbon.VB_ProcData.VB_Invoke_Func = " \n0"
     ' Intentar recuperacion
     If TryRecoverRibbon() Then
         MsgBox "Ribbon recuperado exitosamente." & vbCrLf & vbCrLf & _
-               App.Ribbon.GetQuickDiagnostics(), vbInformation, "Recuperacion Exitosa"
+               App.RibbonUI.GetQuickDiagnostics(), vbInformation, "Recuperacion Exitosa"
     Else
         MsgBox "No se pudo recuperar el Ribbon automaticamente." & vbCrLf & vbCrLf & _
                "Recomendaciones:" & vbCrLf & _
@@ -171,7 +173,7 @@ End Sub
 '@Returns: String | Descripcion del estado actual
 Public Function GetRibbonDiagnostics() As String
 Attribute GetRibbonDiagnostics.VB_Description = "[modMACROAppLifecycle] FUNCIONES DE DIAGNOSTICO Obtiene informacion de diagnostico del estado del Ribbon"
-Attribute GetRibbonDiagnostics.VB_ProcData.VB_Invoke_Func = " \n23"
+Attribute GetRibbonDiagnostics.VB_ProcData.VB_Invoke_Func = " \n20"
     Dim info As String
 
     info = "=== DIAGNOSTICO DEL RIBBON ===" & vbCrLf
@@ -195,16 +197,16 @@ Attribute GetRibbonDiagnostics.VB_ProcData.VB_Invoke_Func = " \n23"
         info = info & "[OK] App.Ribbon: Disponible" & vbCrLf
 
         ' Diagnostico detallado
-        info = info & "    -> " & App.Ribbon.GetQuickDiagnostics() & vbCrLf
+        info = info & "    -> " & App.RibbonUI.GetQuickDiagnostics() & vbCrLf
 
         ' Estado de ribbonUI (IRibbonUI)
         On Error Resume Next
-        If App.Ribbon.ribbonUI Is Nothing Then
+        If App.Ribbon.RibbonUI Is Nothing Then
             info = info & "[X] ribbonUI: Nothing (PERDIDO)" & vbCrLf
             info = info & "    -> El Ribbon necesita recuperacion" & vbCrLf
         Else
             info = info & "[OK] ribbonUI: Conectado" & vbCrLf
-            info = info & "    -> Tipo: " & TypeName(App.Ribbon.ribbonUI) & vbCrLf
+            info = info & "    -> Tipo: " & TypeName(App.Ribbon.RibbonUI) & vbCrLf
         End If
         On Error GoTo 0
     End If
@@ -224,7 +226,7 @@ End Function
 '@Returns: Boolean | True si el Ribbon esta operativo
 Public Function IsRibbonAvailable() As Boolean
 Attribute IsRibbonAvailable.VB_Description = "[modMACROAppLifecycle] Verifica si el Ribbon esta disponible y funcional DESDE EL CONTEXTO GLOBAL"
-Attribute IsRibbonAvailable.VB_ProcData.VB_Invoke_Func = " \n23"
+Attribute IsRibbonAvailable.VB_ProcData.VB_Invoke_Func = " \n20"
     On Error Resume Next
 
     ' Verificar que App existe
@@ -242,7 +244,7 @@ Attribute IsRibbonAvailable.VB_ProcData.VB_Invoke_Func = " \n23"
     End If
 
     ' Verificar que ribbonUI existe
-    If App.Ribbon.ribbonUI Is Nothing Then
+    If App.Ribbon.RibbonUI Is Nothing Then
         LogDebug MODULE_NAME, "IsRibbonAvailable: ribbonUI Is Nothing"
         IsRibbonAvailable = False
         Exit Function
@@ -250,7 +252,7 @@ Attribute IsRibbonAvailable.VB_ProcData.VB_Invoke_Func = " \n23"
 
     ' Intentar una operacion simple para verificar que funciona
     Dim testResult As Boolean
-    testResult = Not (TypeName(App.Ribbon.ribbonUI) = "Nothing")
+    testResult = Not (TypeName(App.Ribbon.RibbonUI) = "Nothing")
 
     If Err.Number <> 0 Then
         LogWarning MODULE_NAME, "IsRibbonAvailable: Error al verificar - " & Err.Description
@@ -271,7 +273,7 @@ End Function
 '@Returns: Boolean | True si la recuperacion fue exitosa
 Public Function TryRecoverRibbon() As Boolean
 Attribute TryRecoverRibbon.VB_Description = "[modMACROAppLifecycle] FUNCIONES DE RECUPERACION Intenta recuperar el Ribbon automaticamente"
-Attribute TryRecoverRibbon.VB_ProcData.VB_Invoke_Func = " \n23"
+Attribute TryRecoverRibbon.VB_ProcData.VB_Invoke_Func = " \n20"
     On Error GoTo ErrHandler
 
     LogInfo MODULE_NAME, "TryRecoverRibbon - Iniciando recuperacion..."

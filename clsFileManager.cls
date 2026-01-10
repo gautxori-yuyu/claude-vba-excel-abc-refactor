@@ -24,38 +24,75 @@ Attribute VB_Exposed = False
 '@Folder "2-Servicios.Archivos"
 Option Explicit
 
+Private Const MODULE_NAME As String = "clsFileManager"
+
+'=============================================================================
+' IMPLEMENTACION IService
+'=============================================================================
+Implements IService
+
+Private mIsInitialized As Boolean
+
+' ==================================================================
 Private p_trackedFiles As Object                 ' Diccionario de TODOS los ficheros de excel, en TODAS las oportunidades procesadas
 Private p_currExcelFile As clsExcelFile
 
 Private WithEvents ctx As clsExecutionContext
 Attribute ctx.VB_VarHelpID = -1
 
+'-----------------------------------------------------------------------------
+' IService Implementation
+'-----------------------------------------------------------------------------
+
+Private Sub IService_Initialize(ByVal dependencies As Object)
+    If mIsInitialized Then Exit Sub
+    
+    LogInfo MODULE_NAME, "[IService_Initialize]"
+    
+    ' Obtener ExecutionContext
+    Set ctx = svcMgr.GetService("IExecutionContext")
+    If ExecutionContext Is Nothing Then
+        LogError MODULE_NAME, "[Initialize] Error: executionContext es Nothing"
+        Exit Sub
+    End If
+    LogInfo MODULE_NAME, "[Initialize] Contexto de ejecución vinculado"
+    
+    mIsInitialized = True
+End Sub
+
+Private Sub IService_Dispose()
+    LogInfo MODULE_NAME, "[IService_Dispose]"
+    ' Limpiar todas las referencias
+    p_trackedFiles.RemoveAll
+    Set p_trackedFiles = Nothing
+    Set p_currExcelFile = Nothing
+    Set ctx = Nothing
+    
+    mIsInitialized = False
+End Sub
+
+Private Property Get IService_IsInitialized() As Boolean
+    IService_IsInitialized = mIsInitialized
+End Property
+
+Private Property Get IService_ServiceName() As String
+    IService_ServiceName = "FileManager"
+End Property
+
 ' ==================================================================
 ' INICIALIZACIÓN Y LIMPIEZA
 ' ==================================================================
 
 Private Sub Class_Initialize()
-    LogInfo "clsFileManager", "[Class_Initialize]"
+    LogInfo MODULE_NAME, "[Class_Initialize]"
     Set p_trackedFiles = CreateObject("Scripting.Dictionary")
 End Sub
 
 '@Description: Inicializa el FileManager con el contexto de ejecución compartido
-'@Note: Debe llamarse desde clsAplicacion después de crear el contexto
-Public Sub Initialize(ByVal executionContext As clsExecutionContext)
-    If executionContext Is Nothing Then
-        LogError "clsFileManager", "[Initialize] Error: executionContext es Nothing"
-        Exit Sub
-    End If
-    Set ctx = executionContext
-    LogInfo "clsFileManager", "[Initialize] Contexto de ejecución vinculado"
-End Sub
 Private Sub Class_Terminate()
-    LogInfo "clsFileManager", "[Class_Terminate]"
+    LogInfo MODULE_NAME, "[Class_Terminate]"
     
-    ' Limpiar todas las referencias
-    p_trackedFiles.RemoveAll
-    Set p_trackedFiles = Nothing
-    Set p_currExcelFile = Nothing
+    IService_Dispose
 End Sub
 
 ' ==================================================================
@@ -76,7 +113,7 @@ End Property
 ' NO deberia usarse, y todo cambio de  deberia hacerse mediante eventos de ctx)
 Friend Property Set ActiveWb(f As clsExcelFile)
     If f Is Nothing Then
-        LogWarning "clsFileManager", "[ActiveWb] Advertencia: Se intenta asignar Nothing como archivo activo"
+        LogWarning MODULE_NAME, "[ActiveWb] Advertencia: Se intenta asignar Nothing como archivo activo"
         Set p_currExcelFile = Nothing
         Exit Property
     End If
@@ -86,18 +123,18 @@ Friend Property Set ActiveWb(f As clsExcelFile)
     key = GetFileKey(f)
     
     If key = 0 Then
-        LogError "clsFileManager", "[ActiveWb] Error: El archivo no provee ObjectKey válido"
+        LogError MODULE_NAME, "[ActiveWb] Error: El archivo no provee ObjectKey válido"
         Exit Property
     End If
     
     ' Validar que el archivo está tracked
     If Not p_trackedFiles.Exists(key) Then
-        LogWarning "clsFileManager", "[ActiveWb] Advertencia: Se intenta activar un archivo no tracked"
+        LogWarning MODULE_NAME, "[ActiveWb] Advertencia: Se intenta activar un archivo no tracked"
         TrackFile f
     End If
     
     Set p_currExcelFile = f
-    LogDebug "clsFileManager", "[ActiveWb] Archivo activo: " & GetFilePath(f)
+    LogDebug MODULE_NAME, "[ActiveWb] Archivo activo: " & GetFilePath(f)
 End Property
 
 '@Description: Obtiene el número de archivos tracked
@@ -126,7 +163,7 @@ Public Function GetOrTrackWorkbook(wb As Workbook) As clsExcelFile
     
     ' Validar que la clave es válida
     If key = 0 Then
-        LogError "clsFileManager", "[GetOrTrackWorkbook] Error: ObjectKey inválido para " & wb.Name
+        LogError MODULE_NAME, "[GetOrTrackWorkbook] Error: ObjectKey inválido para " & wb.Name
         Exit Function
     End If
     
@@ -139,13 +176,13 @@ Public Function GetOrTrackWorkbook(wb As Workbook) As clsExcelFile
     ' Agregar al diccionario
     p_trackedFiles.Add key, f
     
-    LogDebug "clsFileManager", "[GetOrTrackWorkbook] Nuevo archivo tracked: " & f.Path & " (total: " & p_trackedFiles.Count & ")"
+    LogDebug MODULE_NAME, "[GetOrTrackWorkbook] Nuevo archivo tracked: " & f.Path & " (total: " & p_trackedFiles.Count & ")"
     
     Set GetOrTrackWorkbook = f
     Exit Function
     
 ErrHandler:
-    LogError "clsFileManager", "[GetOrTrackWorkbook] Error", Err.Number, Err.Description
+    LogError MODULE_NAME, "[GetOrTrackWorkbook] Error", Err.Number, Err.Description
 End Function
 
 '@Description: Remueve un Workbook del tracking (interfaz específica Excel)
@@ -176,16 +213,16 @@ Public Sub TrackFile(f As Object)
     key = GetFileKey(f)
     
     If p_trackedFiles.Exists(key) Then
-        LogWarning "clsFileManager", "[TrackFile] Advertencia: Archivo ya está tracked"
+        LogWarning MODULE_NAME, "[TrackFile] Advertencia: Archivo ya está tracked"
         Exit Sub
     End If
     
     p_trackedFiles.Add key, f
-    LogDebug "clsFileManager", "[TrackFile] Archivo tracked: " & GetFilePath(f) & " (total: " & p_trackedFiles.Count & ")"
+    LogDebug MODULE_NAME, "[TrackFile] Archivo tracked: " & GetFilePath(f) & " (total: " & p_trackedFiles.Count & ")"
     Exit Sub
     
 ErrHandler:
-    LogError "clsFileManager", "[TrackFile] Error", Err.Number, Err.Description
+    LogError MODULE_NAME, "[TrackFile] Error", Err.Number, Err.Description
 End Sub
 
 '@Description: Remueve un archivo del tracking (genérico)
@@ -199,7 +236,7 @@ Public Sub UntrackFile(f As Object)
     If IsEmpty(key) Then Exit Sub
     
     If Not p_trackedFiles.Exists(key) Then
-        LogWarning "clsFileManager", "[UntrackFile] Advertencia: Intento de untrack de archivo no tracked"
+        LogWarning MODULE_NAME, "[UntrackFile] Advertencia: Intento de untrack de archivo no tracked"
         Exit Sub
     End If
     
@@ -207,14 +244,14 @@ Public Sub UntrackFile(f As Object)
     If Not p_currExcelFile Is Nothing Then
         If p_currExcelFile.ObjectKey = key Then
             Set p_currExcelFile = Nothing
-            LogDebug "clsFileManager", "[UntrackFile] Archivo activo limpiado"
+            LogDebug MODULE_NAME, "[UntrackFile] Archivo activo limpiado"
         End If
     End If
     
     ' Remover del diccionario
     p_trackedFiles.Remove key
     
-    LogInfo "clsFileManager", "[UntrackFile] Archivo untracked (quedan: " & p_trackedFiles.Count & ")"
+    LogInfo MODULE_NAME, "[UntrackFile] Archivo untracked (quedan: " & p_trackedFiles.Count & ")"
 End Sub
 
 ' ==================================================================
@@ -305,14 +342,14 @@ Private Function GetFileKey(f As Object) As Double
 
     ' Validar que sea válido
     If GetFileKey = 0 Then
-        LogWarning "clsFileManager", "[GetFileKey] ObjectKey = 0 para " & TypeName(f)
+        LogWarning MODULE_NAME, "[GetFileKey] ObjectKey = 0 para " & TypeName(f)
     End If
     
     Exit Function
     
 ErrHandler:
-    LogError "clsFileManager", "[GetFileKey] Error para tipo " & TypeName(f), Err.Number, Err.Description
-    LogWarning "clsFileManager", "[GetFileKey] El objeto no implementa IFile correctamente"
+    LogError MODULE_NAME, "[GetFileKey] Error para tipo " & TypeName(f), Err.Number, Err.Description
+    LogWarning MODULE_NAME, "[GetFileKey] El objeto no implementa IFile correctamente"
     GetFileKey = 0
 End Function
 
@@ -328,7 +365,7 @@ Private Function GetFilePath(f As Object) As String
     Exit Function
     
 ErrHandler:
-    LogError "clsFileManager", "[GetFilePath] Error para tipo " & TypeName(f)
+    LogError MODULE_NAME, "[GetFilePath] Error para tipo " & TypeName(f)
     GetFilePath = "(desconocido)"
 End Function
 
@@ -360,19 +397,19 @@ End Function
 
 '@Description: Callback cuando se activa un workbook (desde clsExecutionContext)
 Private Sub ctx_WorkbookActivated(ByVal wb As Workbook)
-    LogDebug "clsFileManager", "[ctx_WorkbookActivated] " & wb.Name
+    LogDebug MODULE_NAME, "[ctx_WorkbookActivated] " & wb.Name
     Set p_currExcelFile = GetOrTrackWorkbook(wb)
 End Sub
 
 '@Description: Callback cuando se abre un workbook (desde clsExecutionContext)
 Private Sub ctx_WorkbookOpened(ByVal wb As Workbook)
-    LogDebug "clsFileManager", "[ctx_WorkbookOpened] " & wb.Name
+    LogDebug MODULE_NAME, "[ctx_WorkbookOpened] " & wb.Name
     GetOrTrackWorkbook wb
 End Sub
 
 '@Description: Callback cuando se cierra un workbook (desde clsExecutionContext)
 Private Sub ctx_WorkbookBeforeClose(ByVal wb As Workbook, Cancel As Boolean)
-    LogDebug "clsFileManager", "[ctx_WorkbookBeforeClose] " & wb.Name
+    LogDebug MODULE_NAME, "[ctx_WorkbookBeforeClose] " & wb.Name
     UntrackWorkbook wb
 End Sub
 

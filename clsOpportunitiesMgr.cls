@@ -6,7 +6,7 @@ Attribute VB_Name = "clsOpportunitiesMgr"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
-Attribute VB_Exposed = True
+Attribute VB_Exposed = False
 
 '==============================================================
 ' Clase: clsOpportunitiesMgr
@@ -24,6 +24,15 @@ Attribute VB_Exposed = True
 '@Folder "4-Oportunidades y compresores"
 '@IgnoreModule IIfSideEffect
 Option Explicit
+
+Private Const MODULE_NAME As String = "clsOpportunitiesMgr"
+
+'=============================================================================
+' IMPLEMENTACION IService
+'=============================================================================
+Implements IService
+
+Private mIsInitialized As Boolean
 
 '--------------------------------------------------------------
 ' @Description: Evento que se dispara cuando cambia
@@ -48,23 +57,60 @@ Private p_bEnabled As Boolean
 Private WithEvents ctx As clsExecutionContext
 Attribute ctx.VB_VarHelpID = -1
 
+'-----------------------------------------------------------------------------
+' IService Implementation
+'-----------------------------------------------------------------------------
+
+Private Sub IService_Initialize(ByVal dependencies As Object)
+    If mIsInitialized Then Exit Sub
+    
+    LogInfo MODULE_NAME, "[IService_Initialize]"
+    
+    ' Obtener Configuration
+    Dim svcMgr As clsServiceManager
+    Set svcMgr = dependencies
+    
+    Dim config As clsConfiguration
+    Set config = svcMgr.GetService("IConfiguration")
+    
+    ' Obtener ExecutionContext
+    Set ctx = svcMgr.GetService("IExecutionContext")
+    
+    ' Configurar ruta base
+    Call SetBaseFolder(config.RutaOportunidades)
+    
+    mIsInitialized = True
+End Sub
+
+Private Sub IService_Dispose()
+    LogInfo MODULE_NAME, "[IService_Dispose]"
+    Set ctx = Nothing
+    Set p_ColOpportunities = Nothing
+    mIsInitialized = False
+End Sub
+
+Private Property Get IService_IsInitialized() As Boolean
+    IService_IsInitialized = mIsInitialized
+End Property
+
+Private Property Get IService_ServiceName() As String
+    IService_ServiceName = "OpportunitiesMgr"
+End Property
 '--------------------------------------------------------------
 ' @Description: Inicializa la clase y carga la ruta base de
 ' oportunidades desde el registro del sistema o su valor por
 ' defecto.
 '--------------------------------------------------------------
 Private Sub Class_Initialize()
-    LogInfo "clsOpportunitiesMgr", "[Class_Initialize]"
-    
-    Set ctx = New clsExecutionContext
-    
+    LogInfo MODULE_NAME, "[Class_Initialize]"
     Set p_ColOpportunities = New Collection
     ' NO cargar rutas aquí, se hará después
     p_CurrOpportunity = -1
 End Sub
 
 Private Sub Class_Terminate()
-    LogInfo "clsOpportunitiesMgr", "[Class_Terminate]"
+    LogInfo MODULE_NAME, "[Class_Terminate]"
+    Call IService_Dispose
 End Sub
 
 Public Property Get bEnabled() As Boolean
@@ -78,7 +124,7 @@ Public Sub SetBaseFolder(ByVal ruta As String)
         p_bEnabled = True
     Else
         ' Opcional: lanzar error, o usar fallback
-        LogWarning "clsOpportunitiesMgr", "[SetBaseFolder] ADVERTENCIA: Ruta no existe: " & ruta & " (deberían desactivarse los controles de ribbon relativos a oportunidades)"
+        LogWarning MODULE_NAME, "[SetBaseFolder] ADVERTENCIA: Ruta no existe: " & ruta & " (deberían desactivarse los controles de ribbon relativos a oportunidades)"
         strOportunitiesBaseFolder = ""
     End If
     
@@ -103,7 +149,7 @@ Public Function actualizarColeccionOportunidades()
 
     If Not p_bEnabled Then Exit Function
 
-    LogInfo "clsOpportunitiesMgr", "[actualizarColeccionOportunidades] - regenerando la variable local que contiene la lista de carpetas de oportunidades"
+    LogInfo MODULE_NAME, "[actualizarColeccionOportunidades] - regenerando la variable local que contiene la lista de carpetas de oportunidades"
     On Error Resume Next
     Set fso = CreateObject("Scripting.FileSystemObject")
     Set carpeta = fso.GetFolder(strOportunitiesBaseFolder)
@@ -117,14 +163,14 @@ Public Function actualizarColeccionOportunidades()
         ' Copiamos rutas en un array para poder ordenarlas
         For Each subcarpeta In carpeta.SubFolders
             regEx.Pattern = FILEORFOLDERNAME_QUOTE_CUSTOMER_OTHER_MODEL_PATTERN
-            If Not regEx.Test(subcarpeta.Name) Then
+            If Not regEx.test(subcarpeta.Name) Then
                 regEx.Pattern = FILEORFOLDERNAME_QUOTE_CUSTOMER_OTHER_PATTERN
-                If Not regEx.Test(subcarpeta.Name) Then
+                If Not regEx.test(subcarpeta.Name) Then
                     ' Nombre de carpeta mal implementado. Trata de corregirlo a partir de ofertas creadas
                 End If
             End If
             regEx.Pattern = FILEORFOLDERNAME_QUOTE_CUSTOMER_OTHER_MODEL_PATTERN
-            If regEx.Test(subcarpeta.Name) Then
+            If regEx.test(subcarpeta.Name) Then
                 arr(i) = subcarpeta.Name
                 i = i + 1
             End If
@@ -152,24 +198,23 @@ End Function
 Public Sub ProcesarCambiosEnOportunidades(ByVal subfolderName As String)
     Dim regEx As Object
     Set regEx = CreateObject("VBScript.RegExp")
-    Dim carpeta As Variant
     Dim bCambiosEnOportunidades As Boolean
 
     If Not p_bEnabled Then Exit Sub
     
-    LogInfo "clsOpportunitiesMgr", "[ProcesarCambiosEnOportunidades] - identificando si los cambios introducidos por el watcher son oportunidades"
+    LogInfo MODULE_NAME, "[ProcesarCambiosEnOportunidades] - identificando si los cambios introducidos por el watcher son oportunidades"
     ' Verificar si los cambios afectan a oportunidades válidas
     regEx.Pattern = FILEORFOLDERNAME_QUOTE_CUSTOMER_OTHER_MODEL_PATTERN
-    bCambiosEnOportunidades = regEx.Test(subfolderName)
+    bCambiosEnOportunidades = regEx.test(subfolderName)
     
     ' Si el cambio corresponde a una oportunidad, actualizar
     If bCambiosEnOportunidades Then
-        LogInfo "clsOpportunitiesMgr", "[ProcesarCambiosEnOportunidades] - cambios identificados"
+        LogInfo MODULE_NAME, "[ProcesarCambiosEnOportunidades] - cambios identificados"
         Call actualizarColeccionOportunidades
         ' NO actualizar ribbon directamente - delegar al evento
         ' La clase NO debe conocer el ribbon
         ' Disparar evento para que otros componentes reaccionen
-        LogInfo "clsOpportunitiesMgr", "[ProcesarCambiosEnOportunidades] - promoviendo evento OpportunityCollectionUpdate para poner al corriente a otros módulos"
+        LogInfo MODULE_NAME, "[ProcesarCambiosEnOportunidades] - promoviendo evento OpportunityCollectionUpdate para poner al corriente a otros módulos"
         RaiseEvent OpportunityCollectionUpdate(subfolderName)
     End If
 End Sub
@@ -177,7 +222,7 @@ End Sub
 'TODO: PTE de implementar: separar del procesado de 'CARPETAS / OPORTUNIDADES'
 ' NO DEBE comunicarse con el File Manager... de eso se encarga clsAplicacion
 Public Sub ProcesarCambiosEnItemsOportunidad(ByVal cambios As String)
-
+    ' TODO
 End Sub
 
 '--------------------------------------------------------------
@@ -229,7 +274,7 @@ Public Property Let CurrOpportunity(Index As Long)
     If Index >= 0 And Index < p_ColOpportunities.Count Then
         p_CurrOpportunity = Index
         
-        LogInfo "clsOpportunitiesMgr", "[CurrOpportunity] - cambio de oportunidad actual -> promoviendo evento OpportunityChanged para poner al corriente a otros módulos"
+        LogInfo MODULE_NAME, "[CurrOpportunity] - cambio de oportunidad actual -> promoviendo evento OpportunityChanged para poner al corriente a otros módulos"
         RaiseEvent currOpportunityChanged(Index, p_ColOpportunities(Index + 1))
     End If
 End Property
@@ -274,7 +319,7 @@ Private Function ExtraerClaveNumerica(ruta As String) As Double
     Set re = CreateObject("VBScript.RegExp")
     re.Pattern = "\d+"
     re.Global = True
-    If re.Test(nombre) Then
+    If re.test(nombre) Then
         Set matches = re.Execute(nombre)
         s = matches(matches.Count - 1).Value
         ExtraerClaveNumerica = CDbl(s)
@@ -313,7 +358,7 @@ Public Sub CreaOportunidad()
     Do
         strCustomer = InputBox(strMsg & "Introduce el nombre del cliente, o cliente - proyecto:", "Cliente - Proyecto", strCustomer)
         strMsg = "NOMBRE NO VALIDO. "
-    Loop While strCustomer <> "" And Not regEx.Test(strOpName & " - " & strCustomer & " - XXX")
+    Loop While strCustomer <> "" And Not regEx.test(strOpName & " - " & strCustomer & " - XXX")
     
     If strCustomer <> "" Then
         Set fso = CreateObject("Scripting.FileSystemObject")
@@ -344,4 +389,5 @@ Private Sub ctx_WorkbookChanged(ByVal wb As Workbook)
     ' Verificar si el workbook está en una oportunidad
     ' Actualizar p_CurrOpportunity si corresponde
 End Sub
+
 

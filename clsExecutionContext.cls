@@ -13,6 +13,12 @@ Attribute VB_Exposed = False
 '       Diseñado para reemplazar ActiveWorkbook/ActiveSheet/ActiveChart/Selection con acceso seguro.
 Option Explicit
 
+'=============================================================================
+' IMPLEMENTACION IService
+'=============================================================================
+Implements IService
+
+Private mIsInitialized As Boolean
 Private Const MODULE_NAME As String = "clsExecutionContext"
 
 ' ==========================================
@@ -49,12 +55,45 @@ Private Type T_CachedChartInfo
 End Type
 Private m_cachedChartInfo As T_CachedChartInfo
 
+'=============================================================================
+' CICLO DE VIDA (modificado para IService)
+'=============================================================================
+
+' ---------------------------------------------------------------------------
+' IService Implementation
+' ---------------------------------------------------------------------------
+
+Private Sub IService_Initialize(ByVal dependencies As Object)
+    If mIsInitialized Then Exit Sub
+    
+    Set m_xlApp = Application
+    LogInfo MODULE_NAME, "[IService_Initialize] - Suscrito a eventos de Application"
+    
+    mIsInitialized = True
+End Sub
+
+Private Sub IService_Dispose()
+    LogInfo MODULE_NAME, "[IService_Dispose] - Liberando recursos"
+    Set m_xlApp = Nothing
+    m_cachedChartInfo.IsValid = False
+    Set m_cachedChartInfo.Chart = Nothing
+    mIsInitialized = False
+End Sub
+
+Private Property Get IService_IsInitialized() As Boolean
+    IService_IsInitialized = mIsInitialized
+End Property
+
+Private Property Get IService_ServiceName() As String
+    IService_ServiceName = "ExecutionContext"
+End Property
+
 ' ---------------------------------------------------------------------------
 ' INICIALIZACIÓN
 ' ---------------------------------------------------------------------------
 Public Sub Initialize()
-    Set m_xlApp = Application
-    ' No cacheamos nada aquí ? lazy evaluation segura
+    ' Delegar a IService_Initialize
+    IService_Initialize Nothing
     LogInfo MODULE_NAME, "[Initialize] - Suscrito a eventos de Application"
 End Sub
 
@@ -282,8 +321,6 @@ End Function
 ' ---------------------------------------------------------------------------
 Private Sub Class_Terminate()
     LogDebug MODULE_NAME, "[Class_Terminate]"
-    Set m_xlApp = Nothing
-    m_cachedChartInfo.IsValid = False
-    Set m_cachedChartInfo.Chart = Nothing
+    Call IService_Dispose
 End Sub
 

@@ -14,7 +14,7 @@ End Enum
 
 Public Function fileName(Optional wb As Workbook = Nothing) As Variant
 Attribute fileName.VB_Description = "[modAPPFileNames] file Name (función personalizada). Aplica a: ActiveWorkbook|Cells Range"
-Attribute fileName.VB_ProcData.VB_Invoke_Func = " \n23"
+Attribute fileName.VB_ProcData.VB_Invoke_Func = " \n20"
     On Error GoTo ErrorHandler
     ' Para manejar correctamente el contexto, tanto en VBA, como al ser llamada como UDF, con y sin parametros
     Select Case True
@@ -61,7 +61,7 @@ Private Function getFileNameTag(tag As FNTag, Optional wb As Workbook = Nothing)
         regEx.Pattern = FILEORFOLDERNAME_QUOTE_CUSTOMER_OTHER_MODEL_PATTERN
 
             
-        If regEx.Test(fileName) Then
+        If regEx.test(fileName) Then
             Set matches = regEx.Execute(fileName)
             getFileNameTag = matches(0).SubMatches(1)
         Else
@@ -70,7 +70,7 @@ Private Function getFileNameTag(tag As FNTag, Optional wb As Workbook = Nothing)
     Case tQuoteNr:
         regEx.Pattern = FILEORFOLDERNAME_QUOTE_CUSTOMER_OTHER_MODEL_PATTERN
             
-        If regEx.Test(fileName) Then
+        If regEx.test(fileName) Then
             Set matches = regEx.Execute(fileName)
             getFileNameTag = matches(0).SubMatches(0)
         Else
@@ -79,7 +79,7 @@ Private Function getFileNameTag(tag As FNTag, Optional wb As Workbook = Nothing)
     Case tQuoteRev:
         regEx.Pattern = "^(?:\d+(?:[\-_]\d+)?)[ \-_]*rev\.?[ \-_]*(\d+)\s*\-"
             
-        If regEx.Test(fileName) Then
+        If regEx.test(fileName) Then
             Set matches = regEx.Execute(fileName)
             getFileNameTag = matches(0).SubMatches(0)
         Else
@@ -88,7 +88,7 @@ Private Function getFileNameTag(tag As FNTag, Optional wb As Workbook = Nothing)
     Case tModel, tFamily, tStages, tCylinders:
         regEx.Pattern = FILEORFOLDERNAME_QUOTE_CUSTOMER_OTHER_MODEL_PATTERN
             
-        If regEx.Test(fileName) Then
+        If regEx.test(fileName) Then
             Set matches = regEx.Execute(fileName)
             getFileNameTag = matches(0).SubMatches(3)
         Else
@@ -103,7 +103,7 @@ Private Function getFileNameTag(tag As FNTag, Optional wb As Workbook = Nothing)
     Case tCylinders: sm = 2
     Case tStages: sm = 0
     End Select
-    If regEx.Test(getFileNameTag) And tag > tFamily Then
+    If regEx.test(getFileNameTag) And tag > tFamily Then
         Set matches = regEx.Execute(getFileNameTag)
         getFileNameTag = matches(0).SubMatches(sm)
     End If
@@ -119,7 +119,7 @@ End Function
 '@ArgumentDescriptions:
 Public Function Customer(Optional wb As Workbook = Nothing) As Variant
 Attribute Customer.VB_Description = "[modAPPFileNames] Extrae el cliente del nombre de archivo, del workbook actual o el pasado como parametro. Aplica a: ActiveWorkbook|Cells Range"
-Attribute Customer.VB_ProcData.VB_Invoke_Func = " \n23"
+Attribute Customer.VB_ProcData.VB_Invoke_Func = " \n20"
     On Error GoTo ErrorHandler
     ' Para manejar correctamente el contexto, tanto en VBA, como al ser llamada como UDF, con y sin parametros
     Select Case True
@@ -146,7 +146,7 @@ End Function
 '@ArgumentDescriptions: (sin argumentos)
 Public Function QuoteNr(Optional wb As Workbook = Nothing) As Variant
 Attribute QuoteNr.VB_Description = "[modAPPFileNames] Extrae el número de oferta del nombre de archivo, del workbook actual o el pasado como parametro. Aplica a: ActiveWorkbook|Cells Range"
-Attribute QuoteNr.VB_ProcData.VB_Invoke_Func = " \n23"
+Attribute QuoteNr.VB_ProcData.VB_Invoke_Func = " \n20"
     On Error GoTo ErrorHandler
     ' Para manejar correctamente el contexto, tanto en VBA, como al ser llamada como UDF, con y sin parametros
     Select Case True
@@ -173,7 +173,7 @@ End Function
 '@ArgumentDescriptions: (sin argumentos)
 Public Function QuoteRev(Optional wb As Workbook = Nothing) As Variant
 Attribute QuoteRev.VB_Description = "[modAPPFileNames] Extrae el número de revisión de la oferta del nombre de archivo, del workbook actual o el pasado como parametro. Aplica a: ActiveWorkbook|Cells Range"
-Attribute QuoteRev.VB_ProcData.VB_Invoke_Func = " \n23"
+Attribute QuoteRev.VB_ProcData.VB_Invoke_Func = " \n20"
     On Error GoTo ErrorHandler
     ' Para manejar correctamente el contexto, tanto en VBA, como al ser llamada como UDF, con y sin parametros
     Select Case True
@@ -200,7 +200,7 @@ End Function
 '@ArgumentDescriptions: (sin argumentos)
 Public Function Model(Optional wb As Workbook = Nothing) As Variant
 Attribute Model.VB_Description = "[modAPPFileNames] Extrae el modelo del compresor del nombre del nombre de archivo, del workbook actual o el pasado como parametro. Aplica a: ActiveWorkbook|Cells Range"
-Attribute Model.VB_ProcData.VB_Invoke_Func = " \n23"
+Attribute Model.VB_ProcData.VB_Invoke_Func = " \n20"
     On Error GoTo ErrorHandler
     ' Para manejar correctamente el contexto, tanto en VBA, como al ser llamada como UDF, con y sin parametros
     Select Case True
@@ -227,7 +227,7 @@ End Function
 '@ArgumentDescriptions: (sin argumentos)
 Public Function Family(Optional wb As Workbook = Nothing) As Variant
 Attribute Family.VB_Description = "[modAPPFileNames] Extrae la familia del compresor (HA, HG, HP, HX) del modelo. Aplica a: ActiveWorkbook|Cells Range"
-Attribute Family.VB_ProcData.VB_Invoke_Func = " \n23"
+Attribute Family.VB_ProcData.VB_Invoke_Func = " \n20"
     On Error GoTo ErrorHandler
     ' Para manejar correctamente el contexto, tanto en VBA, como al ser llamada como UDF, con y sin parametros
     Select Case True
@@ -254,7 +254,7 @@ End Function
 '@ArgumentDescriptions: (sin argumentos)
 Public Function Stages(Optional wb As Workbook = Nothing) As Variant
 Attribute Stages.VB_Description = "[modAPPFileNames] Extrae el número de etapas del compresor del modelo. Aplica a: ActiveWorkbook|Cells Range"
-Attribute Stages.VB_ProcData.VB_Invoke_Func = " \n23"
+Attribute Stages.VB_ProcData.VB_Invoke_Func = " \n20"
     On Error GoTo ErrorHandler
     ' Para manejar correctamente el contexto, tanto en VBA, como al ser llamada como UDF, con y sin parametros
     Select Case True
@@ -281,7 +281,7 @@ End Function
 '@ArgumentDescriptions: (sin argumentos)
 Public Function Cylinders(Optional wb As Workbook = Nothing) As Variant
 Attribute Cylinders.VB_Description = "[modAPPFileNames] Extrae el número de cilindros del compresor del modelo. Aplica a: ActiveWorkbook|Cells Range"
-Attribute Cylinders.VB_ProcData.VB_Invoke_Func = " \n23"
+Attribute Cylinders.VB_ProcData.VB_Invoke_Func = " \n20"
     On Error GoTo ErrorHandler
     ' Para manejar correctamente el contexto, tanto en VBA, como al ser llamada como UDF, con y sin parametros
     Select Case True

@@ -17,7 +17,6 @@ Friend Function App() As clsAplicacion
     End If
     Set App = mApp
 End Function
-
 Public Sub TerminateApp()
     If Not mApp Is Nothing Then
         mApp.Terminate
@@ -26,16 +25,20 @@ Public Sub TerminateApp()
 End Sub
 
 Private Sub Workbook_Open()
-    ' 0. Inicializar logger con salida a fichero
+    ' Inicializar logger
     removeOldLogs
     InitLogger LOG_DEBUG, True, ThisWorkbook.Path & "\ABC_Log_" & Format(Now, "yyyy-mm-dd_hh-nn") & ".txt"
     
     LogInfo "ThisWorkbook", "[Open] - Abriendo Workbook " & ThisWorkbook.Name
+
     ' Sistema de instalación existente
     AutoInstalador
     AutoRegistrarTodasLasUDFs
+
     ' Ctrl + Shift + R
     Application.OnKey "^+R", "ToggleRibbonTab"
+    
+    mApp.Initialize
 End Sub
 
 Private Sub Workbook_BeforeClose(Cancel As Boolean)
@@ -58,6 +61,12 @@ Private Sub Workbook_BeforeClose(Cancel As Boolean)
     ' Desregistrar UDFs
     DesregistrarTodasLasUDFs
     Debug.Print "BeforeClose: UDFs desregistradas (complemento deshabilitado)"
+
+    ' Limpiar recursos al cerrar
+    If Not mApp Is Nothing Then
+        mApp.Terminate
+        Set mApp = Nothing
+    End If
 
     Exit Sub
 

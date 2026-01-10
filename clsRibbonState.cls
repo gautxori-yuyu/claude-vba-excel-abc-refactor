@@ -7,16 +7,51 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
-'@Description: Estado lógico del Ribbon
+'@Description: Estado logico del Ribbon
 '@Category: State
-
 '@Folder "2-Servicios.Excel.Ribbon"
 Option Explicit
+
+'=============================================================================
+' IMPLEMENTACION IService
+'=============================================================================
+Implements IService
+
+Private mIsInitialized As Boolean
+
+'=============================================================================
+' TU CODIGO ORIGINAL
+'=============================================================================
 
 Public Event StateChanged()
 
 Private mModoRibbon As eRibbonMode
 Private mVisible As Boolean
+
+'-----------------------------------------------------------------------------
+' IService Implementation
+'-----------------------------------------------------------------------------
+
+Private Sub IService_Initialize(ByVal dependencies As Object)
+    If mIsInitialized Then Exit Sub
+    mIsInitialized = True
+End Sub
+
+Private Sub IService_Dispose()
+    mIsInitialized = False
+End Sub
+
+Private Property Get IService_IsInitialized() As Boolean
+    IService_IsInitialized = mIsInitialized
+End Property
+
+Private Property Get IService_ServiceName() As String
+    IService_ServiceName = "RibbonState"
+End Property
+
+'=============================================================================
+' TU CODIGO ORIGINAL (sin cambios)
+'=============================================================================
 
 Public Property Get Modo() As eRibbonMode
     Modo = mModoRibbon
@@ -24,7 +59,6 @@ End Property
 
 Public Property Let Modo(Value As eRibbonMode)
     If mModoRibbon = Ribbon_Undefined Then
-        ' se considera una INICIALIZACION, no un cambio de estado
         mModoRibbon = Value
     ElseIf mModoRibbon <> Value Then
         mModoRibbon = Value
@@ -74,21 +108,14 @@ Public Property Let Visible(Value As Boolean)
     End If
 End Property
 
-'@Description: Indica si la pestaña principal del Ribbon debe ser visible
-'@Scope: público (consultado por callbacks)
-'@Returns: Boolean
-'@Category: UI / Estado
 Public Function IsRibbonTabVisible() As Boolean
     Select Case mModoRibbon
     Case Ribbon_Admin
         IsRibbonTabVisible = True
-
     Case Ribbon_User
         IsRibbonTabVisible = True
-
     Case Ribbon_OpportunityOnly
         IsRibbonTabVisible = EsFicheroOportunidad()
-
     Case Else
         IsRibbonTabVisible = False
     End Select
@@ -97,4 +124,3 @@ End Function
 Public Function IsAdminGroupVisible() As Boolean
     IsAdminGroupVisible = (mModoRibbon = Ribbon_Admin)
 End Function
-
