@@ -9,9 +9,10 @@ Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '@Folder "2.Infrastructure"
 Option Explicit
+Implements IService
 
 '=============================================================================
-' clsApplicationContext - Estado compartido de la aplicación
+' clsApplicationContext - Estado compartido de la aplicaciï¿½n
 '=============================================================================
 ' Responsabilidades:
 '   1. Guardar estado global (oportunidad actual, archivo activo, etc.)
@@ -84,7 +85,7 @@ Public Property Set CurrentFile(ByVal Value As Object)
     Set m_CurrentFile = Value
 End Property
 
-'@Description: Estado de la aplicación (inicializando, ejecutando, cerrando)
+'@Description: Estado de la aplicaciï¿½n (inicializando, ejecutando, cerrando)
 Public Property Get ApplicationState() As Long
     ApplicationState = m_ApplicationState
 End Property
@@ -97,7 +98,7 @@ End Property
 ' PROPIEDADES CONVENIENTES - Acceso directo a sub-estados
 '=============================================================================
 
-'@Description: Indica si hay un gráfico activo en este momento
+'@Description: Indica si hay un grï¿½fico activo en este momento
 Public Property Get IsChartActive() As Boolean
     IsChartActive = mChartState.IsActive
 End Property
@@ -137,7 +138,7 @@ Public Property Get RibbonMode() As eRibbonMode
 End Property
 
 '=============================================================================
-' MÉTODOS HELPER
+' Mï¿½TODOS HELPER
 '=============================================================================
 
 '@Description: Resetea todo el estado a valores iniciales
@@ -150,7 +151,7 @@ Public Sub Reset()
     If Not mChartState Is Nothing Then mChartState.Reset
 End Sub
 
-'@Description: Información de debug del estado actual
+'@Description: Informaciï¿½n de debug del estado actual
 Public Function GetDebugInfo() As String
     Dim info As String
     
@@ -175,4 +176,30 @@ Public Function GetDebugInfo() As String
     GetDebugInfo = info
 End Function
 
+'=============================================================================
+' IMPLEMENTACION IService
+'=============================================================================
+Private mIsInitialized As Boolean
 
+Private Sub IService_Initialize(ByVal dependencies As Object)
+    If mIsInitialized Then Exit Sub
+    LogInfo MODULE_NAME, "[IService_Initialize]"
+    mIsInitialized = True
+End Sub
+
+Private Sub IService_Dispose()
+    LogInfo MODULE_NAME, "[IService_Dispose]"
+    Call Reset
+    Set mRibbonState = Nothing
+    Set mExecutionContext = Nothing
+    Set mChartState = Nothing
+    mIsInitialized = False
+End Sub
+
+Private Property Get IService_IsInitialized() As Boolean
+    IService_IsInitialized = mIsInitialized
+End Property
+
+Private Property Get IService_ServiceName() As String
+    IService_ServiceName = "ApplicationContext"
+End Property

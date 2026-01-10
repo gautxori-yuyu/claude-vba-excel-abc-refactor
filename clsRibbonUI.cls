@@ -153,7 +153,7 @@ ErrHandler:
 End Sub
 
 
-'@Description: Activa una pestaña del Ribbon por id
+'@Description: Activa una pestaï¿½a del Ribbon por id
 '@Scope: Friend (uso exclusivo desde clsAplicacion)
 '@ArgumentDescriptions: tabId | id del tab a activar
 '@Category: UI / Ribbon
@@ -256,14 +256,14 @@ End Sub
 
 Public Sub InvertirEjes()
     On Error GoTo ErrHandler
-    
+
     LogInfo MODULE_NAME, "[InvertirEjes] Iniciando..."
-    
-    ' Llamar a la funcion existente
-    Call InvertirEjesGraficoActivo
-    
+
+    ' Llamar a la funcion existente en modMACROGraficoSensibilidad.bas
+    Call InvertirEjesDelGraficoActivo
+
     Exit Sub
-    
+
 ErrHandler:
     LogError MODULE_NAME, "[InvertirEjes] Error", Err.Number, Err.Description
     MsgBox "Error al invertir ejes: " & Err.Description, vbCritical
@@ -271,21 +271,16 @@ End Sub
 
 Public Sub FormatearCGASING()
     On Error GoTo ErrHandler
-    
+
     LogInfo MODULE_NAME, "[FormatearCGASING] Iniciando..."
-    
-    ' TODO: Implementar con IFormatter cuando exista
-    ' Dim formatter As IFormatter
-    ' Set formatter = App.Services.GetService("ICGASINGFormatter")
-    ' If formatter.CanFormat(ActiveWorkbook) Then
-    '     formatter.Format ActiveWorkbook
-    ' End If
-    
-    ' Por ahora llamar a la funcion existente
-    Call FormatCGASINGSheet
-    
+
+    ' TODO: Migrar modMACROFixCGAS.bas desde rama main y llamar a FixCGASING
+    ' La funcion FixCGASING fue eliminada en el refactor y debe migrarse
+    LogWarning MODULE_NAME, "[FormatearCGASING] Funcion pendiente de migrar desde main"
+    MsgBox "Formatear CGASING - Funcion pendiente de migrar desde rama main", vbInformation
+
     Exit Sub
-    
+
 ErrHandler:
     LogError MODULE_NAME, "[FormatearCGASING] Error", Err.Number, Err.Description
     MsgBox "Error al formatear CGASING: " & Err.Description, vbCritical
@@ -293,14 +288,16 @@ End Sub
 
 Public Sub MostrarConfigurador()
     On Error GoTo ErrHandler
-    
+
     LogInfo MODULE_NAME, "[MostrarConfigurador] Mostrando formulario..."
-    
-    ' Mostrar formulario de configuracion
-    frmConfiguracion.Show
-    
+
+    ' TODO: Migrar frmConfiguracion.frm desde rama main
+    ' El formulario fue eliminado en el refactor y debe migrarse
+    LogWarning MODULE_NAME, "[MostrarConfigurador] Formulario pendiente de migrar desde main"
+    MsgBox "Configurador - Formulario pendiente de migrar desde rama main", vbInformation
+
     Exit Sub
-    
+
 ErrHandler:
     LogError MODULE_NAME, "[MostrarConfigurador] Error", Err.Number, Err.Description
     MsgBox "Error al mostrar configurador: " & Err.Description, vbCritical

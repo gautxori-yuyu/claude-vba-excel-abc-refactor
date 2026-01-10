@@ -84,27 +84,26 @@ Public Sub Initialize(ByVal serviceManager As clsServiceManager, _
     LogInfo MODULE_NAME, "Suscribiendo a eventos de servicios..."
 
     ' Suscribirse a cada servicio que emite eventos
-    ' Nota: Los servicios deben estar registrados antes de esta llamada
-
+    ' Los nombres deben coincidir con IService_ServiceName de cada clase
     On Error Resume Next  ' Algunos servicios pueden no estar registrados
 
-    Set mOpportunities = mServiceManager.GetService("IOpportunities")
-    If mOpportunities Is Nothing Then LogDebug MODULE_NAME, "IOpportunities no disponible"
+    Set mOpportunities = mServiceManager.GetService("OpportunitiesMgr")
+    If mOpportunities Is Nothing Then LogDebug MODULE_NAME, "OpportunitiesMgr no disponible"
 
-    Set mChartManager = mServiceManager.GetService("IChartManager")
-    If mChartManager Is Nothing Then LogDebug MODULE_NAME, "IChartManager no disponible"
+    Set mChartManager = mServiceManager.GetService("ChartEventsManager")
+    If mChartManager Is Nothing Then LogDebug MODULE_NAME, "ChartEventsManager no disponible"
 
-    Set mFSMonitoringCoord = mServiceManager.GetService("IFSMonitoring")
-    If mFSMonitoringCoord Is Nothing Then LogDebug MODULE_NAME, "IFSMonitoring no disponible"
+    Set mFSMonitoringCoord = mServiceManager.GetService("FSMonitoringCoord")
+    If mFSMonitoringCoord Is Nothing Then LogDebug MODULE_NAME, "FSMonitoringCoord no disponible"
 
-    Set mRibbonState = mServiceManager.GetService("IRibbonState")
-    If mRibbonState Is Nothing Then LogDebug MODULE_NAME, "IRibbonState no disponible"
+    Set mRibbonState = mServiceManager.GetService("RibbonState")
+    If mRibbonState Is Nothing Then LogDebug MODULE_NAME, "RibbonState no disponible"
 
-    Set evRibbon = mServiceManager.GetService("IRibbonEvents")
-    If evRibbon Is Nothing Then LogDebug MODULE_NAME, "IRibbonEvents no disponible"
+    Set evRibbon = mServiceManager.GetService("RibbonEvents")
+    If evRibbon Is Nothing Then LogDebug MODULE_NAME, "RibbonEvents no disponible"
 
-    Set ctx = mServiceManager.GetService("IExecutionContext")
-    If ctx Is Nothing Then LogDebug MODULE_NAME, "IExecutionContext no disponible"
+    Set ctx = mServiceManager.GetService("ExecutionContext")
+    If ctx Is Nothing Then LogDebug MODULE_NAME, "ExecutionContext no disponible"
 
     On Error GoTo ErrHandler
 
@@ -127,92 +126,12 @@ End Property
 '=============================================================================
 ' MANEJADORES DE EVENTOS
 '=============================================================================
-' TODO: Aqu� ir�n TODOS los manejadores de eventos (los 22 que tienes)
-'
-' ESTRUCTURA T�PICA de cada manejador:
-'
-' Private Sub mOpportunities_currOpportunityChanged(ByVal Index As Long, ByVal Path As String)
-'     ' 1. Actualizar contexto si procede
-'     Dim opp As Object
-'     Set opp = mOpportunities.GetByIndex(Index)
-'     Set mAppContext.CurrentOpportunity = opp
-'
-'     ' 2. Coordinar con otros servicios
-'     Dim ribbonSvc As Object
-'     Set ribbonSvc = mServiceManager.GetService("IRibbon")
-'     ribbonSvc.InvalidateControl "ddlOportunidades"
-'
-'     ' 3. Logging
-'     LogInfo MODULE_NAME, "Oportunidad cambiada: " & Path
-' End Sub
-'
-'
-' Private Sub mChartManager_ChartActivated(Chart As Chart)
-'     ' 1. Actualizar contexto
-'     mAppContext.IsChartActive = True
-'
-'     ' 2. Coordinar con ribbon
-'     Dim ribbonSvc As Object
-'     Set ribbonSvc = mServiceManager.GetService("IRibbon")
-'     ribbonSvc.EnableChartControls
-'
-'     ' 3. Logging
-'     LogInfo MODULE_NAME, "Gr�fico activado"
-' End Sub
-'
-'
-' Private Sub mChartManager_ChartDeactivated(Chart As Chart)
-'     mAppContext.IsChartActive = False
-'
-'     Dim ribbonSvc As Object
-'     Set ribbonSvc = mServiceManager.GetService("IRibbon")
-'     ribbonSvc.DisableChartControls
-'
-'     LogInfo MODULE_NAME, "Gr�fico desactivado"
-' End Sub
-'
-'
-' Private Sub evRibbon_GenerarGraficosDesdeCurvasRto()
-'     ' Coordinar: Llamar al servicio de gr�ficos
-'     Dim chartGen As Object
-'     Set chartGen = mServiceManager.GetService("IChartGenerator")
-'     chartGen.GenerarGraficoSensibilidad
-' End Sub
-'
+' TODO: Migrar los manejadores de eventos desde clsAplicacion de rama main
 
 Private Sub mRibbonState_StateChanged()
     ' Invalidar ribbon cuando cambia estado
     App.RibbonUI.InvalidarRibbon
 End Sub
-
-'
-' Private Sub evRibbon_FormatearCGASING()
-'     ' Coordinar: Llamar al formateador
-'     Dim formatter As IFormatter
-'     Set formatter = mServiceManager.GetService("ICGASINGFormatter")
-'
-'     If formatter.CanFormat(ActiveWorkbook) Then
-'         formatter.Format ActiveWorkbook
-'     End If
-' End Sub
-'
-'
-' Private Sub mFSMonitoringCoord_OpportunityCreated(ByVal parentFolder As String, _
-'                                                     ByVal subfolderName As String)
-'     ' Coordinar: Actualizar lista de oportunidades
-'     Dim oppSvc As Object
-'     Set oppSvc = mServiceManager.GetService("IOpportunities")
-'     oppSvc.RefreshCollection
-'
-'     ' Actualizar ribbon
-'     Dim ribbonSvc As Object
-'     Set ribbonSvc = mServiceManager.GetService("IRibbon")
-'     ribbonSvc.InvalidateControl "ddlOportunidades"
-'
-'     LogInfo MODULE_NAME, "Oportunidad creada: " & subfolderName
-' End Sub
-'
-' ... Y as� con los 22 manejadores de eventos
 
 '=============================================================================
 ' LIMPIEZA

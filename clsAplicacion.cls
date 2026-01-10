@@ -41,6 +41,7 @@ Private mChartsMgr As clsChartEventsManager
 Private fsMon As clsFSMonitoringCoord
 Private mRibbonUI As clsRibbonUI
 Private mRibbonState As clsRibbonState
+Private mRibbonEvents As clsRibbonEvents
 
 '=============================================================================
 ' ESTADO
@@ -48,11 +49,11 @@ Private mRibbonState As clsRibbonState
 Private mIsInitialized As Boolean
 
 '=============================================================================
-' INICIALIZACI�N
+' INICIALIZACION
 '=============================================================================
 
 Private Sub Class_Initialize()
-    ' NO hacer nada pesado aqu�
+    ' NO hacer nada pesado aqui
     ' Esperar a que ThisWorkbook llame Initialize()
 End Sub
 
@@ -158,6 +159,10 @@ Private Sub RegisterServices()
     Set mRibbonState = New clsRibbonState
     mServiceManager.RegisterSingleton mRibbonState
 
+    ' 10. RibbonEvents (eventos del ribbon)
+    Set mRibbonEvents = New clsRibbonEvents
+    mServiceManager.RegisterSingleton mRibbonEvents
+
     '----------------------------------------------------------------------------
     ' TRANSIENT: Servicios creados bajo demanda
     ' (Descomentar cuando se implementen las clases)
@@ -209,8 +214,12 @@ End Sub
      Set RibbonState = mRibbonState
  End Property
 
+ Public Property Get Ribbon() As clsRibbonEvents
+     Set Ribbon = mRibbonEvents
+ End Property
+
 '=============================================================================
-' API P�BLICA
+' API PUBLICA
 '=============================================================================
 
 '@Description: Acceso al gestor de servicios
@@ -218,12 +227,12 @@ Public Property Get Services() As clsServiceManager
     Set Services = mServiceManager
 End Property
 
-'@Description: Acceso al contexto de aplicaci�n
+'@Description: Acceso al contexto de aplicacion
 Public Property Get Context() As clsApplicationContext
     Set Context = mAppContext
 End Property
 
-'@Description: Indica si la aplicaci�n est� inicializada
+'@Description: Indica si la aplicacion esta inicializada
 Public Property Get IsInitialized() As Boolean
     IsInitialized = mIsInitialized
 End Property
@@ -259,6 +268,7 @@ Public Sub Terminate()
     Set fsMon = Nothing
     Set mRibbonUI = Nothing
     Set mRibbonState = Nothing
+    Set mRibbonEvents = Nothing
 
     ' 3. Liberar todos los servicios (en orden inverso)
     If Not mServiceManager Is Nothing Then

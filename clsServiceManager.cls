@@ -16,7 +16,7 @@ Option Explicit
 ' Responsabilidades:
 '   1. Registrar servicios (Singleton o Transient)
 '   2. Resolver servicios (con lazy initialization)
-'   3. Gestionar ciclo de vida (Initialize/Dispose v�a IService)
+'   3. Gestionar ciclo de vida (Initialize/Dispose via IService)
 '   4. Inyectar dependencias
 '=============================================================================
 
@@ -27,7 +27,7 @@ Private Const MODULE_NAME As String = "clsServiceManager"
 '=============================================================================
 
 Public Enum ServiceLifetime
-    Singleton = 1   ' Una instancia para toda la aplicaci�n
+    Singleton = 1   ' Una instancia para toda la aplicacion
     Transient = 2   ' Nueva instancia cada vez que se solicita
 End Enum
 
@@ -39,7 +39,7 @@ Private Type ServiceDescriptor
     ServiceName As String
     Lifetime As ServiceLifetime
     instance As Object              ' Para Singleton
-    factoryFunction As String       ' Para Transient (nombre funci�n)
+    factoryFunction As String       ' Para Transient (nombre funcion)
     IsInitialized As Boolean
 End Type
 
@@ -50,7 +50,7 @@ Private mServices() As ServiceDescriptor
 Private mServiceCount As Long
 
 '=============================================================================
-' INICIALIZACI�N
+' INICIALIZACION
 '=============================================================================
 
 Private Sub Class_Initialize()
@@ -155,7 +155,7 @@ ErrHandler:
 End Sub
 
 '=============================================================================
-' RESOLUCI�N DE SERVICIOS
+' RESOLUCION DE SERVICIOS
 '=============================================================================
 
 '@Description: Obtiene un servicio (lo inicializa si es necesario)
@@ -213,18 +213,18 @@ ErrHandler:
     Err.Raise Err.Number, MODULE_NAME, Err.Description
 End Function
 
-'@Description: Verifica si un servicio est� registrado
+'@Description: Verifica si un servicio esta registrado
 Public Function IsRegistered(ByVal ServiceName As String) As Boolean
     IsRegistered = (FindServiceIndex(ServiceName) >= 0)
 End Function
 
-'@Description: Devuelve el n�mero de servicios registrados
+'@Description: Devuelve el numero de servicios registrados
 Public Function GetServiceCount() As Long
     GetServiceCount = mServiceCount
 End Function
 
 '=============================================================================
-' GESTI�N DE CICLO DE VIDA
+' GESTION DE CICLO DE VIDA
 '=============================================================================
 
 '@Description: Inicializa un servicio Singleton
@@ -235,18 +235,18 @@ End Sub
 '@Description: Inicializa una instancia de servicio (llama a IService.Initialize)
 Private Sub InitializeServiceInstance(ByVal service As Object)
     On Error Resume Next
-    
+
     ' Intentar obtener como IService
     Dim svc As IService
     Set svc = service
-    
+
     If Not svc Is Nothing Then
         ' Pasar el ServiceManager como dependencia (DI)
         svc.Initialize Me
-        
+
         LogInfo MODULE_NAME, "Servicio inicializado: " & svc.ServiceName
     End If
-    
+
     On Error GoTo 0
 End Sub
 
@@ -303,18 +303,18 @@ Public Function GetRegisteredServiceNames() As String
     GetRegisteredServiceNames = result
 End Function
 
-'@Description: Libera un servicio espec�fico
+'@Description: Libera un servicio especifico
 Private Sub DisposeService(ByVal service As Object)
     On Error Resume Next
-    
+
     Dim svc As IService
     Set svc = service
-    
+
     If Not svc Is Nothing Then
         svc.Dispose
         LogInfo MODULE_NAME, "Servicio liberado: " & svc.ServiceName
     End If
-    
+
     Set service = Nothing
 End Sub
 
@@ -341,17 +341,16 @@ Private Sub AddService(descriptor As ServiceDescriptor)
     mServiceCount = mServiceCount + 1
 End Sub
 
-'@Description: Crea una instancia usando una funci�n factory
+'@Description: Crea una instancia usando una funcion factory
 Private Function CreateInstance(ByVal factoryFunction As String) As Object
     On Error GoTo ErrHandler
-    
-    ' Llamar a funci�n factory p�blica
+
+    ' Llamar a funcion factory publica
     Set CreateInstance = Application.Run(factoryFunction)
     Exit Function
-    
+
 ErrHandler:
     Err.Raise 5002, MODULE_NAME, _
         "Error creando instancia con factory: " & factoryFunction & vbCrLf & Err.Description
 End Function
-
 
