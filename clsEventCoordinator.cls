@@ -307,6 +307,15 @@ Private Sub mRibbonEvents_ToggleRibbonMode()
 End Sub
 
 '=============================================================================
+' PROPIEDADES PUBLICAS
+'=============================================================================
+
+'@Description: Expone RibbonEvents para que los callbacks del Ribbon puedan disparar eventos
+Public Property Get RibbonEvents() As clsRibbonEvents
+    Set RibbonEvents = mRibbonEvents
+End Property
+
+'=============================================================================
 ' LIMPIEZA
 '=============================================================================
 

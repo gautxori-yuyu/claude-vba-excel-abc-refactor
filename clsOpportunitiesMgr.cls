@@ -12,12 +12,12 @@ Attribute VB_Exposed = False
 ' Clase: clsOpportunitiesMgr
 '--------------------------------------------------------------
 ' Gestiona la lista de "Oportunidades" (subcarpetas) de un
-' directorio base configurado en el sistema. Expone métodos
-' para refrescar, enumerar y cambiar oportunidad actual, así
+' directorio base configurado en el sistema. Expone mï¿½todos
+' para refrescar, enumerar y cambiar oportunidad actual, asï¿½
 ' como un evento para notificar cambio de oportunidad actual.
 '==============================================================
-'TODO Implementar filtrado de oportunidades por año
-'TODO Anadir búsqueda incremental en dropdown
+'TODO Implementar filtrado de oportunidades por aï¿½o
+'TODO Anadir bï¿½squeda incremental en dropdown
 'TODO Cachear resultado de actualizarColeccionOportunidades (5 min)
 
 '@Exposed
@@ -51,7 +51,7 @@ Public Event OpportunityCollectionUpdate(ByVal cambios As String)
 '--------------------------------------------------------------
 Private strOportunitiesBaseFolder As String
 Private p_ColOpportunities As Collection         ' Lista de subcarpetas encontradas
-Private p_CurrOpportunity As Long                 ' Índice en p_ColOpportunities de la carpeta actual
+Private p_CurrOpportunity As Long                 ' ï¿½ndice en p_ColOpportunities de la carpeta actual
 Private p_bEnabled As Boolean
 
 Private WithEvents ctx As clsExecutionContext
@@ -71,10 +71,10 @@ Private Sub IService_Initialize(ByVal dependencies As Object)
     Set svcMgr = dependencies
     
     Dim config As clsConfiguration
-    Set config = svcMgr.GetService("IConfiguration")
-    
+    Set config = svcMgr.Configuration
+
     ' Obtener ExecutionContext
-    Set ctx = svcMgr.GetService("IExecutionContext")
+    Set ctx = svcMgr.ExecutionContext
     
     ' Configurar ruta base
     Call SetBaseFolder(config.RutaOportunidades)
@@ -104,7 +104,7 @@ End Property
 Private Sub Class_Initialize()
     LogInfo MODULE_NAME, "[Class_Initialize]"
     Set p_ColOpportunities = New Collection
-    ' NO cargar rutas aquí, se hará después
+    ' NO cargar rutas aquï¿½, se harï¿½ despuï¿½s
     p_CurrOpportunity = -1
 End Sub
 
@@ -117,14 +117,14 @@ Public Property Get bEnabled() As Boolean
     bEnabled = p_bEnabled
 End Property
 
-' inyección explícita de la ruta (sin globals)
+' inyecciï¿½n explï¿½cita de la ruta (sin globals)
 Public Sub SetBaseFolder(ByVal ruta As String)
     If RutaExiste(ruta) Then
         strOportunitiesBaseFolder = ruta
         p_bEnabled = True
     Else
         ' Opcional: lanzar error, o usar fallback
-        LogWarning MODULE_NAME, "[SetBaseFolder] ADVERTENCIA: Ruta no existe: " & ruta & " (deberían desactivarse los controles de ribbon relativos a oportunidades)"
+        LogWarning MODULE_NAME, "[SetBaseFolder] ADVERTENCIA: Ruta no existe: " & ruta & " (deberï¿½an desactivarse los controles de ribbon relativos a oportunidades)"
         strOportunitiesBaseFolder = ""
     End If
     
@@ -132,14 +132,14 @@ Public Sub SetBaseFolder(ByVal ruta As String)
 End Sub
 
 '--------------------------------------------------------------
-' @Description: Actualiza la colección p_ColOpportunities con
+' @Description: Actualiza la colecciï¿½n p_ColOpportunities con
 ' las subcarpetas existentes en la ruta base configurada.
-' El listado resultante se ordena en orden numérico inverso
-' (de mayor a menor) según el número detectado en el nombre
-' de cada carpeta. Si no se detectan números, se ordena en
-' orden alfabético descendente.
+' El listado resultante se ordena en orden numï¿½rico inverso
+' (de mayor a menor) segï¿½n el nï¿½mero detectado en el nombre
+' de cada carpeta. Si no se detectan nï¿½meros, se ordena en
+' orden alfabï¿½tico descendente.
 '--------------------------------------------------------------
-' @Category: Información de archivo
+' @Category: Informaciï¿½n de archivo
 ' @ArgumentDescriptions: (sin argumentos)
 '--------------------------------------------------------------
 Public Function actualizarColeccionOportunidades()
@@ -176,7 +176,7 @@ Public Function actualizarColeccionOportunidades()
             End If
         Next subcarpeta
         
-        ' Orden numérico inverso
+        ' Orden numï¿½rico inverso
         If i > 0 Then
             ReDim Preserve arr(i - 1)
             arr = OrdenarCarpetasDesc(arr)
@@ -203,7 +203,7 @@ Public Sub ProcesarCambiosEnOportunidades(ByVal subfolderName As String)
     If Not p_bEnabled Then Exit Sub
     
     LogInfo MODULE_NAME, "[ProcesarCambiosEnOportunidades] - identificando si los cambios introducidos por el watcher son oportunidades"
-    ' Verificar si los cambios afectan a oportunidades válidas
+    ' Verificar si los cambios afectan a oportunidades vï¿½lidas
     regEx.Pattern = FILEORFOLDERNAME_QUOTE_CUSTOMER_OTHER_MODEL_PATTERN
     bCambiosEnOportunidades = regEx.test(subfolderName)
     
@@ -214,7 +214,7 @@ Public Sub ProcesarCambiosEnOportunidades(ByVal subfolderName As String)
         ' NO actualizar ribbon directamente - delegar al evento
         ' La clase NO debe conocer el ribbon
         ' Disparar evento para que otros componentes reaccionen
-        LogInfo MODULE_NAME, "[ProcesarCambiosEnOportunidades] - promoviendo evento OpportunityCollectionUpdate para poner al corriente a otros módulos"
+        LogInfo MODULE_NAME, "[ProcesarCambiosEnOportunidades] - promoviendo evento OpportunityCollectionUpdate para poner al corriente a otros mï¿½dulos"
         RaiseEvent OpportunityCollectionUpdate(subfolderName)
     End If
 End Sub
@@ -226,9 +226,9 @@ Public Sub ProcesarCambiosEnItemsOportunidad(ByVal cambios As String)
 End Sub
 
 '--------------------------------------------------------------
-' @Description: Devuelve el número de oportunidades cargadas.
+' @Description: Devuelve el nï¿½mero de oportunidades cargadas.
 '--------------------------------------------------------------
-' @Category: Información de archivo
+' @Category: Informaciï¿½n de archivo
 ' @ArgumentDescriptions: (sin argumentos)
 '--------------------------------------------------------------
 Public Function numOpportunities() As Variant
@@ -237,10 +237,10 @@ End Function
 
 '--------------------------------------------------------------
 ' @Description: Devuelve una oportunidad
-' según el índice indicado.
+' segï¿½n el ï¿½ndice indicado.
 '--------------------------------------------------------------
-' @Category: Información de archivo
-' @ArgumentDescriptions: index: índice (base 0) de la oportunidad
+' @Category: Informaciï¿½n de archivo
+' @ArgumentDescriptions: index: ï¿½ndice (base 0) de la oportunidad
 '--------------------------------------------------------------
 Public Property Get OportunityLabel(Index As Integer) As String
     If Index >= 0 And Index < p_ColOpportunities.Count Then
@@ -252,10 +252,10 @@ End Property
 
 '--------------------------------------------------------------
 ' @Description: Devuelve la ruta completa de una oportunidad
-' según el índice indicado.
+' segï¿½n el ï¿½ndice indicado.
 '--------------------------------------------------------------
-' @Category: Información de archivo
-' @ArgumentDescriptions: index: índice (base 0) de la oportunidad
+' @Category: Informaciï¿½n de archivo
+' @ArgumentDescriptions: index: ï¿½ndice (base 0) de la oportunidad
 '--------------------------------------------------------------
 Public Property Get OportunityPath(Index As Long) As String
     If Index >= 0 And Index < p_ColOpportunities.Count Then
@@ -267,14 +267,14 @@ End Property
 ' @Description: Actualiza la oportunidad actual y dispara
 ' el evento currOpportunityChanged.
 '--------------------------------------------------------------
-' @Category: Información de archivo
-' @ArgumentDescriptions: index: índice (base 0) de la oportunidad
+' @Category: Informaciï¿½n de archivo
+' @ArgumentDescriptions: index: ï¿½ndice (base 0) de la oportunidad
 '--------------------------------------------------------------
 Public Property Let CurrOpportunity(Index As Long)
     If Index >= 0 And Index < p_ColOpportunities.Count Then
         p_CurrOpportunity = Index
         
-        LogInfo MODULE_NAME, "[CurrOpportunity] - cambio de oportunidad actual -> promoviendo evento OpportunityChanged para poner al corriente a otros módulos"
+        LogInfo MODULE_NAME, "[CurrOpportunity] - cambio de oportunidad actual -> promoviendo evento OpportunityChanged para poner al corriente a otros mï¿½dulos"
         RaiseEvent currOpportunityChanged(Index, p_ColOpportunities(Index + 1))
     End If
 End Property
@@ -284,9 +284,9 @@ Public Property Get CurrOpportunity() As Long
 End Property
 
 '--------------------------------------------------------------
-' @Description: Ordena un array de rutas en orden numérico
-' inverso, detectando el último número en el nombre de cada
-' carpeta. Si no hay número, orden alfabético descendente.
+' @Description: Ordena un array de rutas en orden numï¿½rico
+' inverso, detectando el ï¿½ltimo nï¿½mero en el nombre de cada
+' carpeta. Si no hay nï¿½mero, orden alfabï¿½tico descendente.
 '--------------------------------------------------------------
 Private Function OrdenarCarpetasDesc(arr() As String) As String()
     Dim i As Long, j As Long, tmp As String
@@ -308,8 +308,8 @@ Private Function OrdenarCarpetasDesc(arr() As String) As String()
 End Function
 
 '--------------------------------------------------------------
-' @Description: Extrae el último número del nombre de la carpeta.
-' Si no hay número, devuelve -1E+99 para forzar orden al final.
+' @Description: Extrae el ï¿½ltimo nï¿½mero del nombre de la carpeta.
+' Si no hay nï¿½mero, devuelve -1E+99 para forzar orden al final.
 '--------------------------------------------------------------
 Private Function ExtraerClaveNumerica(ruta As String) As Double
     Dim re As Object, matches As Object, s As String
@@ -386,7 +386,7 @@ End Sub
 ' ==================================================================
 
 Private Sub ctx_WorkbookChanged(ByVal wb As Workbook)
-    ' Verificar si el workbook está en una oportunidad
+    ' Verificar si el workbook estï¿½ en una oportunidad
     ' Actualizar p_CurrOpportunity si corresponde
 End Sub
 

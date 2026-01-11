@@ -7,142 +7,114 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = True
-' ==========================================
-' CLASE DE EVENTOS DEL RIBBON
-' ==========================================
-' Esta clase envuelve el objeto IRibbonUI y gestiona
-' su ciclo de vida con proteccion y logging.
-'
-' CAMBIOS IMPORTANTES:
-' - ribbonUI ahora es privado con Property Get
-' - mWasEverInitialized es informativo, no bloquea
-' ==========================================
-
 '@Folder "2-Servicios.Excel.Ribbon"
 Option Explicit
 
 '=============================================================================
-' IMPLEMENTACION IService
+' clsRibbonEvents - Eventos de acciones del Ribbon
 '=============================================================================
-Implements IService
-
-Private mIsInitialized As Boolean
-
+' Responsabilidades:
+'   1. Declarar eventos publicos para acciones del Ribbon
+'   2. Proporcionar metodos On* que disparan los eventos
+'   3. Evaluar estado enabled de controles del Ribbon
 '=============================================================================
-' TU CODIGO ORIGINAL
+' USO:
+'   - clsEventCoordinator se suscribe con WithEvents
+'   - modCALLBACKSRibbon llama a los metodos On* cuando el usuario pulsa botones
 '=============================================================================
 
 Private Const MODULE_NAME As String = "clsRibbonEvents"
 
+'=============================================================================
+' EVENTOS PUBLICOS - Para suscripcion con WithEvents
+'=============================================================================
+Public Event GenerarGraficosDesdeCurvasRto()
+Public Event InvertirEjes()
+Public Event FormatearCGASING()
+Public Event MostrarConfigurador()
+Public Event NuevaOportunidad()
+Public Event ReplaceWithNamesInValidations()
+Public Event ToggleRibbonMode()
 
-'-----------------------------------------------------------------------------
-' IService Implementation
-'-----------------------------------------------------------------------------
-
-Private Sub IService_Initialize(ByVal dependencies As Object)
-    If mIsInitialized Then Exit Sub
-    
-    LogInfo MODULE_NAME, "[IService_Initialize]"
-    mWasEverInitialized = False
-    mIsRecovering = False
-    mIsInitialized = True
-End Sub
-
-Private Sub IService_Dispose()
-    LogInfo MODULE_NAME, "[IService_Dispose]"
-    Call StopEvents
-    mIsInitialized = False
-End Sub
-
-Private Property Get IService_IsInitialized() As Boolean
-    IService_IsInitialized = mIsInitialized
-End Property
-
-Private Property Get IService_ServiceName() As String
-    IService_ServiceName = "RibbonEvents"
-End Property
-
-' ==========================================
-' INICIALIZACION Y LIMPIEZA
-' ==========================================
-
-Private Sub Class_Initialize()
-    LogInfo MODULE_NAME, "[Class_Initialize]"
-    mWasEverInitialized = False
-    mIsRecovering = False
-End Sub
-
-Private Sub Class_Terminate()
-    Call IService_Dispose
-    LogInfo MODULE_NAME, "[Class_Terminate]"
-End Sub
+'=============================================================================
+' METODOS PUBLICOS - Disparan eventos (llamados desde callbacks del Ribbon)
+'=============================================================================
 
 Public Sub OnGenerarGraficosDesdeCurvasRto()
+    LogDebug MODULE_NAME, "[OnGenerarGraficosDesdeCurvasRto]"
     RaiseEvent GenerarGraficosDesdeCurvasRto
 End Sub
 
 Public Sub OnInvertirEjes()
+    LogDebug MODULE_NAME, "[OnInvertirEjes]"
     RaiseEvent InvertirEjes
 End Sub
 
 Public Sub OnFormatearCGASING()
+    LogDebug MODULE_NAME, "[OnFormatearCGASING]"
     RaiseEvent FormatearCGASING
 End Sub
 
-Public Sub OnConfigurador()
-    RaiseEvent Configurador
+Public Sub OnMostrarConfigurador()
+    LogDebug MODULE_NAME, "[OnMostrarConfigurador]"
+    RaiseEvent MostrarConfigurador
 End Sub
 
 Public Sub OnNuevaOportunidad()
+    LogDebug MODULE_NAME, "[OnNuevaOportunidad]"
     RaiseEvent NuevaOportunidad
 End Sub
 
 Public Sub OnReplaceWithNamesInValidations()
+    LogDebug MODULE_NAME, "[OnReplaceWithNamesInValidations]"
     RaiseEvent ReplaceWithNamesInValidations
 End Sub
 
-Public Function GetRibbonControlEnabled(control As IRibbonControl) As Boolean
-    Dim enabled As Boolean
-    Select Case control.id
-    Case "btnGenerarGraficos"                    ' GetGraficoEnabled
-        enabled = EsFicheroOportunidad() And EsValidoGenerarGrafico()
-    Case "btnInvertirSeries"                     ' GetInvertirEjesEnabled
-        enabled = EsFicheroOportunidad()
-        'If enabled Then enabled = App.bChartActive ' comprueba que hay un grafico seleccionado
-        If enabled Then enabled = EsValidoInvertirEjes()
-        ' HAY QUE PASAR A ESTO: el orquestador determina el estado del ribbon:
-        ' ... PERO DE MOMENTO, NO ESTA TERMINADO DE IMPLEMENTAR clsExcelFile y clsFileManager
-        ' enabled = App.bCanInvertAxes
-    Case "btnCGASING"                            ' GetCGASINGEnabled
-        enabled = EsFicheroOportunidad()
-        If enabled Then enabled = IsDefaultCGasIngSheet()
-    Case "btnNuevaOp"                            ' GetNuevaOportunidadEnabled
-        enabled = True
-    End Select
-    GetRibbonControlEnabled = enabled
-    'InvalidarControl control.id ' esto ESTA DE SOBRA!!
-    LogDebug MODULE_NAME, "[GetRibbonControlEnabled] - ¿" & control.id & "?: " & CBool(enabled)
-End Function
-
-
-' ==========================================
-' gestion del ribbon
-' ==========================================
-'@Description: Conmuta cíclicamente el modo del Ribbon (admin ? opp ? user ? admin)
-'@Scope: público
-'@Category: UI / Ribbon
-Public Sub ToggleRibbonMode()
-    mRibbonState.ToggleModo
-    Call ActivarTabSiProcede
+Public Sub OnToggleRibbonMode()
+    LogDebug MODULE_NAME, "[OnToggleRibbonMode]"
+    RaiseEvent ToggleRibbonMode
 End Sub
 
-Private Sub ActivarTabSiProcede()
-    On Error Resume Next
+'=============================================================================
+' EVALUACION DE ESTADO DE CONTROLES
+'=============================================================================
 
-    If evRibbon Is Nothing Then Exit Sub
+'@Description: Determina si un control del Ribbon debe estar habilitado
+Public Function GetRibbonControlEnabled(control As IRibbonControl) As Boolean
+    Dim enabled As Boolean
 
-    If EsFicheroOportunidad() Then
-        evRibbon.ActivarTab "tabOfertasEspecial"
-    End If
+    Select Case control.Id
+    Case "btnGenerarGraficos"
+        enabled = EsFicheroOportunidad() And EsValidoGenerarGrafico()
+
+    Case "btnInvertirSeries"
+        enabled = EsFicheroOportunidad()
+        If enabled Then enabled = EsValidoInvertirEjes()
+
+    Case "btnCGASING"
+        enabled = EsFicheroOportunidad()
+        If enabled Then enabled = IsDefaultCGasIngSheet()
+
+    Case "btnNuevaOp"
+        enabled = True
+
+    Case Else
+        enabled = True
+    End Select
+
+    GetRibbonControlEnabled = enabled
+    LogDebug MODULE_NAME, "[GetRibbonControlEnabled] " & control.Id & " = " & enabled
+End Function
+
+'=============================================================================
+' CICLO DE VIDA
+'=============================================================================
+
+Private Sub Class_Initialize()
+    LogDebug MODULE_NAME, "[Class_Initialize]"
+End Sub
+
+Private Sub Class_Terminate()
+    LogDebug MODULE_NAME, "[Class_Terminate]"
 End Sub
 
