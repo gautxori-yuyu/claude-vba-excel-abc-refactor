@@ -11,25 +11,34 @@ Attribute VB_Exposed = False
 Option Explicit
 
 '=============================================================================
-' IMPLEMENTACION IService
+' clsRibbonUI - Servicio de gestion del puntero IRibbonUI
 '=============================================================================
+' Responsabilidades:
+'   1. Gestionar el puntero IRibbonUI (recibido del callback RibbonOnLoad)
+'   2. Proporcionar metodos de invalidacion (Invalidate, InvalidateControl)
+'   3. Manejar recuperacion automatica si el puntero se pierde
+'   4. Diagnostico del estado del Ribbon
+'=============================================================================
+' NOTA: Este servicio NO contiene logica de negocio.
+'       Las acciones de usuario (GenerarGraficos, FormatearCGASING, etc.)
+'       se manejan en clsEventCoordinator via eventos de clsRibbonEvents.
+'=============================================================================
+
 Implements IService
-
-Private mIsInitialized As Boolean
-
-'=============================================================================
-' RIBBON UI
-'=============================================================================
 
 Private Const MODULE_NAME As String = "clsRibbonUI"
 
+'=============================================================================
+' ESTADO
+'=============================================================================
 Private mRibbonUI As IRibbonUI
 Private mIsRecovering As Boolean              ' Flag para evitar recursion durante recuperacion
 Private mWasEverInitialized As Boolean        ' Flag para distinguir "nunca inicializado" de "perdido"
+Private mIsInitialized As Boolean
 
-'-----------------------------------------------------------------------------
+'=============================================================================
 ' IService Implementation
-'-----------------------------------------------------------------------------
+'=============================================================================
 
 Private Sub IService_Initialize(ByVal dependencies As Object)
     If mIsInitialized Then Exit Sub
@@ -54,15 +63,16 @@ Private Property Get IService_ServiceName() As String
 End Property
 
 '=============================================================================
-' RIBBON UI MANAGEMENT
+' GESTION DEL PUNTERO IRibbonUI
 '=============================================================================
 
 '@Description: Obtiene el puntero al Ribbon (puede ser Nothing)
-Public Property Get RibbonUI() As IRibbonUI
-    Set RibbonUI = mRibbonUI
+Public Property Get RibbonUIPointer() As IRibbonUI
+    Set RibbonUIPointer = mRibbonUI
 End Property
 
-
+'@Description: Recibe el puntero IRibbonUI del callback RibbonOnLoad
+'@Note: Llamado desde el modulo de callbacks del Ribbon (customUI.xml -> RibbonOnLoad)
 Public Sub Init(ByRef ribbonObj As IRibbonUI)
     LogDebug MODULE_NAME, "[Init] - Recibiendo puntero IRibbonUI"
     Set mRibbonUI = ribbonObj
@@ -75,10 +85,15 @@ Public Sub Init(ByRef ribbonObj As IRibbonUI)
     mWasEverInitialized = True
 End Sub
 
+'@Description: Libera el puntero IRibbonUI
 Public Sub StopEvents()
     LogDebug MODULE_NAME, "[StopEvents] - Liberando puntero"
     Set mRibbonUI = Nothing
 End Sub
+
+'=============================================================================
+' INVALIDACION DEL RIBBON
+'=============================================================================
 
 '@Description: Invalida todo el Ribbon, forzando recarga de callbacks
 '@Note: Intenta recuperacion automatica si el Ribbon esta perdido
@@ -115,7 +130,7 @@ Public Sub InvalidarRibbon()
     Exit Sub
 
 ErrHandler:
-    LogError MODULE_NAME, "[InvalidarRibbon] Error", Err.Description
+    LogError MODULE_NAME, "[InvalidarRibbon] Error", , Err.Description
     ' No propagar el error, solo loguear
 End Sub
 
@@ -152,11 +167,7 @@ ErrHandler:
     LogError MODULE_NAME, "[InvalidarControl] Error en control " & idControl, , Err.Description
 End Sub
 
-
-'@Description: Activa una pesta�a del Ribbon por id
-'@Scope: Friend (uso exclusivo desde clsAplicacion)
-'@ArgumentDescriptions: tabId | id del tab a activar
-'@Category: UI / Ribbon
+'@Description: Activa una pestana del Ribbon por id
 Friend Sub ActivarTab(tabId As String)
     On Error Resume Next
     If IsRibbonUIAvailable() Then
@@ -164,10 +175,14 @@ Friend Sub ActivarTab(tabId As String)
     End If
 End Sub
 
+'=============================================================================
+' VERIFICACION Y RECUPERACION
+'=============================================================================
+
 '@Description: Verifica si el objeto ribbonUI esta disponible y funcional
 Private Function IsRibbonUIAvailable() As Boolean
     If mRibbonUI Is Nothing Then IsRibbonUIAvailable = False: Exit Function
-    
+
     On Error Resume Next
     Dim testType As String
     testType = TypeName(mRibbonUI)
@@ -200,12 +215,24 @@ ErrHandler:
     TryAutoRecover = False
 End Function
 
+'=============================================================================
+' PROPIEDADES DE DIAGNOSTICO
+'=============================================================================
 
 '@Description: Indica si el Ribbon esta en proceso de recuperacion
 Public Property Get IsRecovering() As Boolean
     IsRecovering = mIsRecovering
 End Property
 
+'@Description: Indica si el Ribbon fue inicializado alguna vez
+Public Property Get WasEverInitialized() As Boolean
+    WasEverInitialized = mWasEverInitialized
+End Property
+
+'@Description: Indica si el puntero IRibbonUI esta disponible
+Public Property Get IsAvailable() As Boolean
+    IsAvailable = IsRibbonUIAvailable()
+End Property
 
 '@Description: Diagnostico rapido del estado del Ribbon
 Public Function GetQuickDiagnostics() As String
@@ -229,111 +256,6 @@ Public Function GetQuickDiagnostics() As String
 
     GetQuickDiagnostics = info
 End Function
-
-'=============================================================================
-' ACCIONES DEL RIBBON - Implementacion de logica de negocio
-'=============================================================================
-
-Public Sub GenerarGraficosDesdeCurvasRto()
-    On Error GoTo ErrHandler
-    
-    LogInfo MODULE_NAME, "[GenerarGraficosDesdeCurvasRto] Iniciando..."
-    
-    ' TODO: Implementar logica de generacion de graficos
-    ' Cuando exista el servicio IChartGenerator:
-    ' Dim chartGen As Object
-    ' Set chartGen = App.Services.GetService("IChartGenerator")
-    ' chartGen.GenerarGraficoSensibilidad
-    
-    MsgBox "Generar graficos - TODO: Implementar", vbInformation
-    
-    Exit Sub
-    
-ErrHandler:
-    LogError MODULE_NAME, "[GenerarGraficosDesdeCurvasRto] Error", Err.Number, Err.Description
-    MsgBox "Error al generar graficos: " & Err.Description, vbCritical
-End Sub
-
-Public Sub InvertirEjes()
-    On Error GoTo ErrHandler
-
-    LogInfo MODULE_NAME, "[InvertirEjes] Iniciando..."
-
-    ' Llamar a la funcion existente en modMACROGraficoSensibilidad.bas
-    Call InvertirEjesDelGraficoActivo
-
-    Exit Sub
-
-ErrHandler:
-    LogError MODULE_NAME, "[InvertirEjes] Error", Err.Number, Err.Description
-    MsgBox "Error al invertir ejes: " & Err.Description, vbCritical
-End Sub
-
-Public Sub FormatearCGASING()
-    On Error GoTo ErrHandler
-
-    LogInfo MODULE_NAME, "[FormatearCGASING] Iniciando..."
-
-    ' TODO: Migrar modMACROFixCGAS.bas desde rama main y llamar a FixCGASING
-    ' La funcion FixCGASING fue eliminada en el refactor y debe migrarse
-    LogWarning MODULE_NAME, "[FormatearCGASING] Funcion pendiente de migrar desde main"
-    MsgBox "Formatear CGASING - Funcion pendiente de migrar desde rama main", vbInformation
-
-    Exit Sub
-
-ErrHandler:
-    LogError MODULE_NAME, "[FormatearCGASING] Error", Err.Number, Err.Description
-    MsgBox "Error al formatear CGASING: " & Err.Description, vbCritical
-End Sub
-
-Public Sub MostrarConfigurador()
-    On Error GoTo ErrHandler
-
-    LogInfo MODULE_NAME, "[MostrarConfigurador] Mostrando formulario..."
-
-    ' TODO: Migrar frmConfiguracion.frm desde rama main
-    ' El formulario fue eliminado en el refactor y debe migrarse
-    LogWarning MODULE_NAME, "[MostrarConfigurador] Formulario pendiente de migrar desde main"
-    MsgBox "Configurador - Formulario pendiente de migrar desde rama main", vbInformation
-
-    Exit Sub
-
-ErrHandler:
-    LogError MODULE_NAME, "[MostrarConfigurador] Error", Err.Number, Err.Description
-    MsgBox "Error al mostrar configurador: " & Err.Description, vbCritical
-End Sub
-
-Public Sub ReplaceWithNamesInValidations()
-    On Error GoTo ErrHandler
-    
-    LogInfo MODULE_NAME, "[ReplaceWithNamesInValidations] Iniciando..."
-    
-    ' TODO: Implementar logica
-    MsgBox "Replace with names - TODO: Implementar", vbInformation
-    
-    Exit Sub
-    
-ErrHandler:
-    LogError MODULE_NAME, "[ReplaceWithNamesInValidations] Error", Err.Number, Err.Description
-    MsgBox "Error: " & Err.Description, vbCritical
-End Sub
-
-Public Sub CrearBackupCodigoVBA()
-    On Error GoTo ErrHandler
-    
-    LogInfo MODULE_NAME, "[CrearBackupCodigoVBA] Iniciando..."
-    
-    ' TODO: Implementar backup de codigo VBA
-    ' Exportar todos los modulos a una carpeta con timestamp
-    
-    MsgBox "Backup VBA - TODO: Implementar", vbInformation
-    
-    Exit Sub
-    
-ErrHandler:
-    LogError MODULE_NAME, "[CrearBackupCodigoVBA] Error", Err.Number, Err.Description
-    MsgBox "Error al crear backup: " & Err.Description, vbCritical
-End Sub
 
 '=============================================================================
 ' CICLO DE VIDA

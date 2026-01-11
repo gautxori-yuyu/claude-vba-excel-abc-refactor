@@ -9,15 +9,18 @@ Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '@Folder "2.Infrastructure"
 Option Explicit
-Implements IService
 
 '=============================================================================
-' clsApplicationContext - Estado compartido de la aplicaci�n
+' clsApplicationContext - Estado compartido de la aplicacion
 '=============================================================================
 ' Responsabilidades:
-'   1. Guardar estado global (oportunidad actual, archivo activo, etc.)
-'   2. Proporcionar acceso compartido a ese estado
-'   3. Notificar cambios si hace falta
+'   1. Agregar/componer sub-estados (RibbonState, ChartState, ExecutionContext)
+'   2. Proporcionar acceso compartido al estado de la aplicacion
+'   3. Servir como punto central de acceso al estado (no a servicios)
+'=============================================================================
+' NOTA: Esta clase NO es un servicio. NO implementa IService.
+'       Es un objeto de estado puro, creado y gestionado por clsAplicacion.
+'       Los servicios acceden a ella via ServiceManager.AppContext
 '=============================================================================
 
 Private Const MODULE_NAME As String = "clsApplicationContext"
@@ -176,30 +179,4 @@ Public Function GetDebugInfo() As String
     GetDebugInfo = info
 End Function
 
-'=============================================================================
-' IMPLEMENTACION IService
-'=============================================================================
-Private mIsInitialized As Boolean
 
-Private Sub IService_Initialize(ByVal dependencies As Object)
-    If mIsInitialized Then Exit Sub
-    LogInfo MODULE_NAME, "[IService_Initialize]"
-    mIsInitialized = True
-End Sub
-
-Private Sub IService_Dispose()
-    LogInfo MODULE_NAME, "[IService_Dispose]"
-    Call Reset
-    Set mRibbonState = Nothing
-    Set mExecutionContext = Nothing
-    Set mChartState = Nothing
-    mIsInitialized = False
-End Sub
-
-Private Property Get IService_IsInitialized() As Boolean
-    IService_IsInitialized = mIsInitialized
-End Property
-
-Private Property Get IService_ServiceName() As String
-    IService_ServiceName = "ApplicationContext"
-End Property

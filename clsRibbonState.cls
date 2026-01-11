@@ -7,20 +7,21 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
-'@Description: Estado logico del Ribbon
+'@Description: Estado lógico del Ribbon (NO es un servicio - es estado puro)
 '@Category: State
-'@Folder "2-Servicios.Excel.Ribbon"
+'@Folder "2.Infrastructure.State"
 Option Explicit
 
 '=============================================================================
-' IMPLEMENTACION IService
+' clsRibbonState - Estado del Ribbon (gestionado por ApplicationContext)
 '=============================================================================
-Implements IService
-
-Private mIsInitialized As Boolean
-
+' Responsabilidades:
+'   1. Mantener el modo actual del Ribbon (Admin, User, Hidden, etc.)
+'   2. Notificar cambios de estado via eventos
+'   3. Determinar visibilidad de tabs/grupos según el modo
 '=============================================================================
-' TU CODIGO ORIGINAL
+' NOTA: Esta clase NO es un servicio. Es un objeto de estado puro
+'       gestionado por clsApplicationContext.
 '=============================================================================
 
 Public Event StateChanged()
@@ -28,29 +29,8 @@ Public Event StateChanged()
 Private mModoRibbon As eRibbonMode
 Private mVisible As Boolean
 
-'-----------------------------------------------------------------------------
-' IService Implementation
-'-----------------------------------------------------------------------------
-
-Private Sub IService_Initialize(ByVal dependencies As Object)
-    If mIsInitialized Then Exit Sub
-    mIsInitialized = True
-End Sub
-
-Private Sub IService_Dispose()
-    mIsInitialized = False
-End Sub
-
-Private Property Get IService_IsInitialized() As Boolean
-    IService_IsInitialized = mIsInitialized
-End Property
-
-Private Property Get IService_ServiceName() As String
-    IService_ServiceName = "RibbonState"
-End Property
-
 '=============================================================================
-' TU CODIGO ORIGINAL (sin cambios)
+' PROPIEDADES - Modo del Ribbon
 '=============================================================================
 
 Public Property Get Modo() As eRibbonMode
@@ -97,6 +77,10 @@ Public Function RibbonStateDescription() As String
     End Select
 End Function
 
+'=============================================================================
+' PROPIEDADES - Visibilidad
+'=============================================================================
+
 Public Property Get Visible() As Boolean
     Visible = mVisible
 End Property
@@ -107,6 +91,10 @@ Public Property Let Visible(Value As Boolean)
         RaiseEvent StateChanged
     End If
 End Property
+
+'=============================================================================
+' MÉTODOS - Determinación de visibilidad
+'=============================================================================
 
 Public Function IsRibbonTabVisible() As Boolean
     Select Case mModoRibbon
@@ -124,3 +112,13 @@ End Function
 Public Function IsAdminGroupVisible() As Boolean
     IsAdminGroupVisible = (mModoRibbon = Ribbon_Admin)
 End Function
+
+'=============================================================================
+' MÉTODOS - Reset
+'=============================================================================
+
+Public Sub Reset()
+    mModoRibbon = Ribbon_Undefined
+    mVisible = False
+End Sub
+

@@ -11,346 +11,271 @@ Attribute VB_Exposed = True
 Option Explicit
 
 '=============================================================================
-' clsServiceManager - Gestor de servicios con ciclo de vida
+' clsServiceManager - Gestor de servicios con resolución por tipo
 '=============================================================================
 ' Responsabilidades:
-'   1. Registrar servicios (Singleton o Transient)
-'   2. Resolver servicios (con lazy initialization)
-'   3. Gestionar ciclo de vida (Initialize/Dispose via IService)
-'   4. Inyectar dependencias
+'   1. Registrar servicios Singleton (usando TypeName como clave)
+'   2. Resolver servicios mediante propiedades tipadas
+'   3. Gestionar ciclo de vida (Initialize/Dispose vía IService)
+'   4. Inyectar dependencias (ApplicationContext + ServiceManager)
+'=============================================================================
+' DISEÑO:
+'   - NO usa nombres de servicio como strings
+'   - Usa TypeName() internamente como clave del diccionario
+'   - Expone propiedades tipadas para acceso a servicios
+'   - Todos los servicios son Singleton
 '=============================================================================
 
 Private Const MODULE_NAME As String = "clsServiceManager"
 
 '=============================================================================
-' ENUMS
-'=============================================================================
-
-Public Enum ServiceLifetime
-    Singleton = 1   ' Una instancia para toda la aplicacion
-    Transient = 2   ' Nueva instancia cada vez que se solicita
-End Enum
-
-'=============================================================================
-' TYPES
-'=============================================================================
-
-Private Type ServiceDescriptor
-    ServiceName As String
-    Lifetime As ServiceLifetime
-    instance As Object              ' Para Singleton
-    factoryFunction As String       ' Para Transient (nombre funcion)
-    IsInitialized As Boolean
-End Type
-
-'=============================================================================
 ' ESTADO
 '=============================================================================
-Private mServices() As ServiceDescriptor
-Private mServiceCount As Long
+Private mServices As Object                         ' Dictionary: TypeName -> IService
+Private mAppContext As clsApplicationContext        ' Contexto compartido (inyectado)
+Private mIsInitialized As Boolean
 
 '=============================================================================
-' INICIALIZACION
+' INICIALIZACIÓN
 '=============================================================================
 
 Private Sub Class_Initialize()
-    mServiceCount = 0
-    ReDim mServices(0 To 9) ' Preasignar espacio inicial (opcional)
+    Set mServices = CreateObject("Scripting.Dictionary")
+    mServices.CompareMode = vbTextCompare
 End Sub
 
 Private Sub Class_Terminate()
     Call DisposeAll
 End Sub
 
+'@Description: Inicializa el ServiceManager con el ApplicationContext
+Public Sub Initialize(ByVal appContext As clsApplicationContext)
+    If mIsInitialized Then Exit Sub
+
+    Set mAppContext = appContext
+    mIsInitialized = True
+
+    LogInfo MODULE_NAME, "[Initialize] ServiceManager inicializado con ApplicationContext"
+End Sub
+
 '=============================================================================
 ' REGISTRO DE SERVICIOS
 '=============================================================================
 
-'@Description: Registra un servicio Singleton (una instancia compartida)
-Public Sub RegisterSingleton(ByVal instance As Object)
+'@Description: Registra un servicio Singleton (clave = TypeName automático)
+Public Sub RegisterSingleton(ByVal instance As IService)
     On Error GoTo ErrHandler
 
-    If instance Is Nothing Then
-        Err.Raise 5003, MODULE_NAME, "No se puede registrar un servicio Nothing"
-    End If
+    Dim key As String
+    key = TypeName(instance)
 
-    Dim instanceService As IService
-    Set instanceService = instance
-
-    If instanceService Is Nothing Then
-        Err.Raise 5004, MODULE_NAME, "El objeto no implementa IService"
-    End If
-
-    Dim svcName As String
-    svcName = instanceService.ServiceName
-
-    If Len(Trim(svcName)) = 0 Then
-        Err.Raise 5005, MODULE_NAME, "ServiceName no puede estar vacio"
-    End If
-
-    Dim Index As Long
-    Index = FindServiceIndex(svcName)
-
-    Dim descriptor As ServiceDescriptor
-
-    descriptor.ServiceName = svcName
-    descriptor.Lifetime = ServiceLifetime.Singleton
-    Set descriptor.instance = instance
-    descriptor.IsInitialized = False
-    descriptor.factoryFunction = ""
-
-    If Index >= 0 Then
+    If mServices.Exists(key) Then
         ' Reemplazar servicio existente
-        mServices(Index) = descriptor
-        LogInfo MODULE_NAME, "Singleton actualizado: " & svcName
+        Set mServices(key) = instance
+        LogInfo MODULE_NAME, "Singleton actualizado: " & key
     Else
-        ' Agregar nuevo servicio
-        Call AddService(descriptor)
-        LogInfo MODULE_NAME, "Singleton registrado: " & svcName
+        ' Añadir nuevo servicio
+        mServices.Add key, instance
+        LogInfo MODULE_NAME, "Singleton registrado: " & key
     End If
 
     Exit Sub
 
 ErrHandler:
-    LogError MODULE_NAME, "Error registrando singleton", Err.Number, Err.Description
-    Err.Raise Err.Number, MODULE_NAME, Err.Description
-End Sub
-
-'@Description: Registra un servicio Transient (nueva instancia cada vez)
-Public Sub RegisterTransient(ByVal ServiceName As String, ByVal factoryFunction As String)
-    On Error GoTo ErrHandler
-
-    If Len(Trim(ServiceName)) = 0 Then
-        Err.Raise 5006, MODULE_NAME, "ServiceName no puede estar vacio para Transient"
-    End If
-
-    If Len(Trim(factoryFunction)) = 0 Then
-        Err.Raise 5007, MODULE_NAME, "factoryFunction no puede estar vacio"
-    End If
-
-    Dim Index As Long
-    Index = FindServiceIndex(ServiceName)
-
-    Dim descriptor As ServiceDescriptor
-
-    descriptor.ServiceName = ServiceName
-    descriptor.Lifetime = ServiceLifetime.Transient
-    Set descriptor.instance = Nothing
-    descriptor.IsInitialized = False
-    descriptor.factoryFunction = factoryFunction
-
-    If Index >= 0 Then
-        mServices(Index) = descriptor
-        LogInfo MODULE_NAME, "Transient actualizado: " & ServiceName
-    Else
-        Call AddService(descriptor)
-        LogInfo MODULE_NAME, "Transient registrado: " & ServiceName
-    End If
-
-    Exit Sub
-
-ErrHandler:
-    LogError MODULE_NAME, "Error registrando transient: " & ServiceName, Err.Number, Err.Description
-    Err.Raise Err.Number, MODULE_NAME, Err.Description
+    LogError MODULE_NAME, "[RegisterSingleton] Error", Err.Number, Err.Description
+    Err.Raise Err.Number, MODULE_NAME, "Error registrando servicio: " & Err.Description
 End Sub
 
 '=============================================================================
-' RESOLUCION DE SERVICIOS
+' INICIALIZACIÓN DE SERVICIOS (Lazy)
 '=============================================================================
 
-'@Description: Obtiene un servicio (lo inicializa si es necesario)
-Public Function GetService(ByVal ServiceName As String) As Object
-    On Error GoTo ErrHandler
+'@Description: Inicializa un servicio si aún no está inicializado
+Private Sub EnsureInitialized(ByVal service As IService)
+    If service.IsInitialized Then Exit Sub
 
-    If Len(Trim(ServiceName)) = 0 Then
-        Err.Raise 5008, MODULE_NAME, "ServiceName no puede estar vacio"
-    End If
+    ' Inyectar dependencias: ServiceManager (Me) para acceso a otros servicios
+    service.Initialize Me
 
-    Dim Index As Long
-    Index = FindServiceIndex(ServiceName)
+    LogInfo MODULE_NAME, "Servicio inicializado: " & TypeName(service)
+End Sub
 
-    If Index < 0 Then
-        Err.Raise 5001, MODULE_NAME, "Servicio no registrado: " & ServiceName
-    End If
+'@Description: Inicializa todos los servicios registrados
+Public Sub InitializeAll()
+    Dim key As Variant
+    Dim service As IService
 
-    Dim descriptor As ServiceDescriptor
-    descriptor = mServices(Index)
+    LogInfo MODULE_NAME, "Inicializando " & mServices.Count & " servicios..."
 
-    Select Case descriptor.Lifetime
-        Case ServiceLifetime.Singleton
-            ' Lazy initialization para Singletons
-            If Not descriptor.IsInitialized Then
-                Call InitializeServiceInstance(descriptor.instance)
-                descriptor.IsInitialized = True
-                mServices(Index) = descriptor
-                LogDebug MODULE_NAME, "Singleton inicializado: " & ServiceName
-            End If
+    For Each key In mServices.Keys
+        Set service = mServices(key)
+        Call EnsureInitialized(service)
+    Next key
 
-            Set GetService = descriptor.instance
+    LogInfo MODULE_NAME, "Todos los servicios inicializados"
+End Sub
 
-        Case ServiceLifetime.Transient
-            ' Crear nueva instancia para Transient
-            Dim newInstance As Object
-            Set newInstance = CreateInstance(descriptor.factoryFunction)
+'=============================================================================
+' PROPIEDADES TIPADAS - Acceso a servicios sin strings
+'=============================================================================
+' Cada propiedad devuelve el servicio específico con su tipo correcto.
+' Lazy initialization: el servicio se inicializa la primera vez que se accede.
+'=============================================================================
 
-            If newInstance Is Nothing Then
-                Err.Raise 5009, MODULE_NAME, "Factory retorno Nothing para: " & ServiceName
-            End If
+Public Property Get Configuration() As clsConfiguration
+    Const KEY As String = "clsConfiguration"
+    If Not mServices.Exists(KEY) Then Exit Property
 
-            Call InitializeServiceInstance(newInstance)
-            LogDebug MODULE_NAME, "Transient creado: " & ServiceName
+    Dim service As IService
+    Set service = mServices(KEY)
+    Call EnsureInitialized(service)
 
-            Set GetService = newInstance
+    Set Configuration = mServices(KEY)
+End Property
 
-        Case Else
-            Err.Raise 5010, MODULE_NAME, "Lifetime desconocido para: " & ServiceName
-    End Select
+Public Property Get ExecutionContext() As clsExecutionContext
+    Const KEY As String = "clsExecutionContext"
+    If Not mServices.Exists(KEY) Then Exit Property
 
-    Exit Function
+    Dim service As IService
+    Set service = mServices(KEY)
+    Call EnsureInitialized(service)
 
-ErrHandler:
-    LogError MODULE_NAME, "Error obteniendo servicio: " & ServiceName, Err.Number, Err.Description
-    Err.Raise Err.Number, MODULE_NAME, Err.Description
-End Function
+    Set ExecutionContext = mServices(KEY)
+End Property
 
-'@Description: Verifica si un servicio esta registrado
-Public Function IsRegistered(ByVal ServiceName As String) As Boolean
-    IsRegistered = (FindServiceIndex(ServiceName) >= 0)
-End Function
+Public Property Get FileManager() As clsFileManager
+    Const KEY As String = "clsFileManager"
+    If Not mServices.Exists(KEY) Then Exit Property
 
-'@Description: Devuelve el numero de servicios registrados
+    Dim service As IService
+    Set service = mServices(KEY)
+    Call EnsureInitialized(service)
+
+    Set FileManager = mServices(KEY)
+End Property
+
+Public Property Get OpportunitiesMgr() As clsOpportunitiesMgr
+    Const KEY As String = "clsOpportunitiesMgr"
+    If Not mServices.Exists(KEY) Then Exit Property
+
+    Dim service As IService
+    Set service = mServices(KEY)
+    Call EnsureInitialized(service)
+
+    Set OpportunitiesMgr = mServices(KEY)
+End Property
+
+Public Property Get ChartEventsManager() As clsChartEventsManager
+    Const KEY As String = "clsChartEventsManager"
+    If Not mServices.Exists(KEY) Then Exit Property
+
+    Dim service As IService
+    Set service = mServices(KEY)
+    Call EnsureInitialized(service)
+
+    Set ChartEventsManager = mServices(KEY)
+End Property
+
+Public Property Get FSMonitoringCoord() As clsFSMonitoringCoord
+    Const KEY As String = "clsFSMonitoringCoord"
+    If Not mServices.Exists(KEY) Then Exit Property
+
+    Dim service As IService
+    Set service = mServices(KEY)
+    Call EnsureInitialized(service)
+
+    Set FSMonitoringCoord = mServices(KEY)
+End Property
+
+Public Property Get RibbonUI() As clsRibbonUI
+    Const KEY As String = "clsRibbonUI"
+    If Not mServices.Exists(KEY) Then Exit Property
+
+    Dim service As IService
+    Set service = mServices(KEY)
+    Call EnsureInitialized(service)
+
+    Set RibbonUI = mServices(KEY)
+End Property
+
+'=============================================================================
+' PROPIEDADES DE CONSULTA
+'=============================================================================
+
+'@Description: Devuelve el número de servicios registrados
 Public Function GetServiceCount() As Long
-    GetServiceCount = mServiceCount
+    GetServiceCount = mServices.Count
 End Function
 
+'@Description: Verifica si un servicio está registrado (por TypeName)
+Public Function IsRegistered(ByVal typeName As String) As Boolean
+    IsRegistered = mServices.Exists(typeName)
+End Function
+
+'@Description: Acceso al ApplicationContext
+Public Property Get AppContext() As clsApplicationContext
+    Set AppContext = mAppContext
+End Property
+
 '=============================================================================
-' GESTION DE CICLO DE VIDA
+' GESTIÓN DE CICLO DE VIDA
 '=============================================================================
 
-'@Description: Inicializa un servicio Singleton
-Private Sub InitializeService(ByRef descriptor As ServiceDescriptor)
-    Call InitializeServiceInstance(descriptor.instance)
-End Sub
-
-'@Description: Inicializa una instancia de servicio (llama a IService.Initialize)
-Private Sub InitializeServiceInstance(ByVal service As Object)
-    On Error Resume Next
-
-    ' Intentar obtener como IService
-    Dim svc As IService
-    Set svc = service
-
-    If Not svc Is Nothing Then
-        ' Pasar el ServiceManager como dependencia (DI)
-        svc.Initialize Me
-
-        LogInfo MODULE_NAME, "Servicio inicializado: " & svc.ServiceName
-    End If
-
-    On Error GoTo 0
-End Sub
-
-'@Description: Libera todos los servicios en orden inverso al registro
+'@Description: Libera todos los servicios
 Public Sub DisposeAll()
     On Error Resume Next
 
-    If mServiceCount = 0 Then
-        LogInfo MODULE_NAME, "No hay servicios para liberar"
-        Exit Sub
-    End If
+    LogInfo MODULE_NAME, "Liberando " & mServices.Count & " servicios..."
 
-    LogInfo MODULE_NAME, "Liberando " & mServiceCount & " servicios..."
+    Dim key As Variant
+    Dim service As IService
 
-    ' Liberar en orden inverso (LIFO) para respetar dependencias
-    Dim i As Long
-    For i = mServiceCount - 1 To 0 Step -1
-        With mServices(i)
-            If .Lifetime = ServiceLifetime.Singleton Then
-                If Not .instance Is Nothing Then
-                    LogDebug MODULE_NAME, "Liberando: " & .ServiceName
-                    Call DisposeService(.instance)
-                    Set .instance = Nothing
-                End If
-            End If
-        End With
-    Next i
-
-    mServiceCount = 0
-    Erase mServices
-    ReDim mServices(0 To 9)
-
-    LogInfo MODULE_NAME, "Todos los servicios liberados correctamente"
-End Sub
-
-'@Description: Devuelve lista de nombres de servicios registrados (para diagnostico)
-Public Function GetRegisteredServiceNames() As String
-    If mServiceCount = 0 Then
-        GetRegisteredServiceNames = "(ninguno)"
-        Exit Function
-    End If
-
-    Dim result As String
-    Dim i As Long
-
-    For i = 0 To mServiceCount - 1
-        If i > 0 Then result = result & ", "
-        result = result & mServices(i).ServiceName
-        If mServices(i).IsInitialized Then
-            result = result & " [init]"
+    For Each key In mServices.Keys
+        Set service = mServices(key)
+        If service.IsInitialized Then
+            service.Dispose
+            LogInfo MODULE_NAME, "Servicio liberado: " & key
         End If
-    Next i
+    Next key
 
-    GetRegisteredServiceNames = result
-End Function
+    mServices.RemoveAll
+    Set mAppContext = Nothing
+    mIsInitialized = False
 
-'@Description: Libera un servicio especifico
-Private Sub DisposeService(ByVal service As Object)
-    On Error Resume Next
-
-    Dim svc As IService
-    Set svc = service
-
-    If Not svc Is Nothing Then
-        svc.Dispose
-        LogInfo MODULE_NAME, "Servicio liberado: " & svc.ServiceName
-    End If
-
-    Set service = Nothing
+    LogInfo MODULE_NAME, "Servicios liberados"
 End Sub
 
 '=============================================================================
-' HELPERS
+' MÉTODO LEGACY (Para compatibilidad temporal)
 '=============================================================================
-Private Function FindServiceIndex(ByVal ServiceName As String) As Long
-    Dim i As Long
-    For i = 0 To mServiceCount - 1
-        If StrComp(mServices(i).ServiceName, ServiceName, vbTextCompare) = 0 Then
-            FindServiceIndex = i
-            Exit Function
-        End If
-    Next i
-    FindServiceIndex = -1
-End Function
 
-Private Sub AddService(descriptor As ServiceDescriptor)
-    ' Asegurar espacio
-    If mServiceCount >= UBound(mServices) Then
-        ReDim Preserve mServices(0 To UBound(mServices) + 10)
+'@Description: Obtiene un servicio por nombre (DEPRECATED - usar propiedades tipadas)
+'@Note: Mantener solo para migración, eliminar cuando todo use propiedades tipadas
+Public Function GetService(ByVal serviceName As String) As Object
+    LogWarning MODULE_NAME, "[GetService] DEPRECATED: Usar propiedades tipadas en lugar de GetService(""" & serviceName & """)"
+
+    ' Mapear nombres legacy a TypeNames
+    Dim key As String
+    Select Case serviceName
+        Case "IConfiguration": key = "clsConfiguration"
+        Case "IExecutionContext": key = "clsExecutionContext"
+        Case "IFileManager": key = "clsFileManager"
+        Case "IOpportunities": key = "clsOpportunitiesMgr"
+        Case "IChartManager": key = "clsChartEventsManager"
+        Case "IFSMonitoring": key = "clsFSMonitoringCoord"
+        Case "IRibbonUI": key = "clsRibbonUI"
+        Case Else: key = serviceName
+    End Select
+
+    If Not mServices.Exists(key) Then
+        Err.Raise 5001, MODULE_NAME, "Servicio no registrado: " & serviceName & " (key: " & key & ")"
     End If
-    mServices(mServiceCount) = descriptor
-    mServiceCount = mServiceCount + 1
-End Sub
 
-'@Description: Crea una instancia usando una funcion factory
-Private Function CreateInstance(ByVal factoryFunction As String) As Object
-    On Error GoTo ErrHandler
+    Dim service As IService
+    Set service = mServices(key)
+    Call EnsureInitialized(service)
 
-    ' Llamar a funcion factory publica
-    Set CreateInstance = Application.Run(factoryFunction)
-    Exit Function
-
-ErrHandler:
-    Err.Raise 5002, MODULE_NAME, _
-        "Error creando instancia con factory: " & factoryFunction & vbCrLf & Err.Description
+    Set GetService = mServices(key)
 End Function
 
