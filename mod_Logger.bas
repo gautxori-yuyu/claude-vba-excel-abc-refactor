@@ -23,6 +23,8 @@ Private mMinLevel As LogLevel
 Private mLogToFile As Boolean
 Private mLogFilePath As String
 Private mIncludeTimestamp As Boolean
+Private mIsInitialized As Boolean
+Private mSessionId As String
 
 ' ==========================================
 ' MACROS
@@ -55,12 +57,35 @@ Attribute InitLogger.VB_ProcData.VB_Invoke_Func = " \n0"
     mLogToFile = logToFile
     mIncludeTimestamp = True
 
+    ' Generar ID de sesion unico
+    mSessionId = Format(Now, "yyyymmdd_hhnnss") & "_" & Right(CStr(Timer * 1000), 4)
+
     If logToFile And logFilePath = "" Then
         mLogFilePath = Environ("TEMP") & "\ABC_VBA_Log_" & Format(Date, "yyyy-mm-dd") & ".txt"
     Else
         mLogFilePath = logFilePath
     End If
+
+    mIsInitialized = True
+
+    ' Escribir header de sesion si se loguea a archivo
+    If mLogToFile Then
+        WriteToFile "=========================================="
+        WriteToFile "NUEVA SESION: " & mSessionId
+        WriteToFile "Inicio: " & Format(Now, "yyyy-mm-dd hh:nn:ss")
+        WriteToFile "=========================================="
+    End If
 End Sub
+
+'@Description: Verifica si el logger esta inicializado
+Public Function IsLoggerInitialized() As Boolean
+    IsLoggerInitialized = mIsInitialized
+End Function
+
+'@Description: Devuelve el ID de la sesion actual
+Public Function GetSessionId() As String
+    GetSessionId = mSessionId
+End Function
 
 ' ==========================================
 ' FUNCIONES PUBLICAS DE LOGGING
@@ -191,8 +216,7 @@ End Sub
 
 '@Description: Obtiene el nombre del nivel de log
 Public Function GetLevelName(ByVal level As LogLevel) As String
-Attribute GetLevelName.VB_Description = "[mod_Logger] UTILIDADES Obtiene el nombre del nivel de log"
-Attribute GetLevelName.VB_ProcData.VB_Invoke_Func = " \n23"
+Attribute GetLevelName.VB_ProcData.VB_Invoke_Func = " \n0"
     Select Case level
         Case LOG_DEBUG:    GetLevelName = "DEBUG"
         Case LOG_INFO:     GetLevelName = "INFO"
@@ -217,7 +241,40 @@ End Sub
 
 '@Description: Obtiene la ruta del archivo de log actual
 Public Function GetLogFilePath() As String
-Attribute GetLogFilePath.VB_Description = "[mod_Logger] Obtiene la ruta del archivo de log actual"
-Attribute GetLogFilePath.VB_ProcData.VB_Invoke_Func = " \n23"
+Attribute GetLogFilePath.VB_ProcData.VB_Invoke_Func = " \n0"
     GetLogFilePath = mLogFilePath
 End Function
+
+'@Description: Registra inicio de una operacion (devuelve tick para medir duracion)
+Public Function LogOperationStart(ByVal source As String, ByVal operationName As String) As Double
+    LogDebug source, ">> Iniciando: " & operationName
+    LogOperationStart = Timer
+End Function
+
+'@Description: Registra fin de una operacion con duracion
+Public Sub LogOperationEnd(ByVal source As String, ByVal operationName As String, ByVal startTick As Double)
+    Dim duration As Double
+    duration = Timer - startTick
+
+    ' Manejar el caso de medianoche
+    If duration < 0 Then duration = duration + 86400
+
+    LogDebug source, "<< Finalizado: " & operationName & " (" & Format(duration, "0.000") & "s)"
+End Sub
+
+'@Description: Establece el nivel minimo de logging en tiempo de ejecucion
+Public Sub SetLogLevel(ByVal newLevel As LogLevel)
+    mMinLevel = newLevel
+    LogInfo "mod_Logger", "Nivel de log cambiado a: " & GetLevelName(newLevel)
+End Sub
+
+'@Description: Obtiene el nivel minimo de logging actual
+Public Function GetLogLevel() As LogLevel
+    GetLogLevel = mMinLevel
+End Function
+
+'@Description: Habilita o deshabilita el logging a archivo
+Public Sub SetLogToFile(ByVal enabled As Boolean)
+    mLogToFile = enabled
+    LogInfo "mod_Logger", "Logging a archivo: " & IIf(enabled, "ACTIVADO", "DESACTIVADO")
+End Sub

@@ -8,7 +8,7 @@ Option Explicit
 ' Requiere referencia a: Microsoft Visual Basic for Applications Extensibility 5.3
 Public Function ParsearUDFsDeTodosLosProyectos() As Object
 Attribute ParsearUDFsDeTodosLosProyectos.VB_Description = "[modUTILSProcedureParsing] Requiere referencia a: Microsoft Visual Basic for Applications Extensibility 5.3"
-Attribute ParsearUDFsDeTodosLosProyectos.VB_ProcData.VB_Invoke_Func = " \n23"
+Attribute ParsearUDFsDeTodosLosProyectos.VB_ProcData.VB_Invoke_Func = " \n20"
     Dim vbeProj As Object ' VBIDE.VBProject
     Dim oDicUDFs As Object
     Dim oDicProcs As Object, key
@@ -41,7 +41,7 @@ Attribute ParsearUDFsDeTodosLosProyectos.VB_ProcData.VB_Invoke_Func = " \n23"
 End Function
 Public Function ParsearProcsDelProyecto() As Object
 Attribute ParsearProcsDelProyecto.VB_Description = "[modUTILSProcedureParsing] Parsear Procs Del Proyecto (función personalizada). Aplica a: ThisWorkbook"
-Attribute ParsearProcsDelProyecto.VB_ProcData.VB_Invoke_Func = " \n23"
+Attribute ParsearProcsDelProyecto.VB_ProcData.VB_Invoke_Func = " \n20"
     On Error GoTo ErrorHandler
     
     Set ParsearProcsDelProyecto = ParsearProcs(ThisWorkbook.VBProject)
@@ -52,7 +52,7 @@ End Function
 ' Parsea todos los procedimientos del proyecto VBA (CON Y SIN metadatos)
 Public Function ParsearProcs(ByVal vbProj As Object) As Object
 Attribute ParsearProcs.VB_Description = "[modUTILSProcedureParsing] Parsea todos los procedimientos del proyecto VBA (CON Y SIN metadatos)"
-Attribute ParsearProcs.VB_ProcData.VB_Invoke_Func = " \n23"
+Attribute ParsearProcs.VB_ProcData.VB_Invoke_Func = " \n20"
     Dim vbComp As VBIDE.VBComponent
     
     Dim procName As String
@@ -137,7 +137,7 @@ Private Function getProcCode(CodeModule As Object, procName As String, PKind As 
         re.Pattern = "^\s*'.+"
         On Error GoTo ErrorHandler
         Do While .procStartLine > 1
-            If Not (re.Test(CodeModule.Lines(.procStartLine - 1, 1)) Or _
+            If Not (re.test(CodeModule.Lines(.procStartLine - 1, 1)) Or _
                     CodeModule.Lines(.procStartLine - 1, 1) = "") Then Exit Do
             .procStartLine = .procStartLine - 1
         Loop
@@ -151,7 +151,7 @@ Private Function getProcCode(CodeModule As Object, procName As String, PKind As 
             i = i + 1
             .strCode = .strCode & vbCrLf & CodeModule.Lines(i, 1)
             If i - .procStartLine > 500 Then Stop
-        Loop Until (i = CodeModule.CountOfLines) Or re.Test(CodeModule.Lines(i, 1))
+        Loop Until (i = CodeModule.CountOfLines) Or re.test(CodeModule.Lines(i, 1))
         
         '.procWrongEndLines = .procNumLines - (i - .procStartLine + 1) ' ESTAS LINEAS DEBEN ASOCIARSE AL PROCEDIMIENTO SIGUIENTE
         .procNumLines = i - .procStartLine + 1

@@ -5,8 +5,7 @@ Option Explicit
 Dim iSeriesNr As Integer
 
 Public Function EsFicheroOportunidad() As Boolean
-Attribute EsFicheroOportunidad.VB_Description = "[modMACROGraficoSensibilidad] Es Fichero Oportunidad (función personalizada). Aplica a: ActiveWorkbook"
-Attribute EsFicheroOportunidad.VB_ProcData.VB_Invoke_Func = " \n23"
+Attribute EsFicheroOportunidad.VB_ProcData.VB_Invoke_Func = " \n0"
     Dim re As Object: Set re = CreateObject("VBScript.RegExp")
     re.Pattern = "^[A-Z]{3}\d{5}_\d{2}"          ' patrón esperado en el nombre del fichero
     re.IgnoreCase = True
@@ -14,12 +13,11 @@ Attribute EsFicheroOportunidad.VB_ProcData.VB_Invoke_Func = " \n23"
     Case ActiveWindow Is Nothing, ActiveWindow.Visible = False, ActiveWorkbook Is Nothing
         Exit Function
     End Select
-    EsFicheroOportunidad = re.Test(ActiveWorkbook.Name)
+    EsFicheroOportunidad = re.test(ActiveWorkbook.Name)
 End Function
 
 Public Function EsValidoGenerarGrafico() As Boolean
-Attribute EsValidoGenerarGrafico.VB_Description = "[modMACROGraficoSensibilidad] Es Valido Generar Grafico (función personalizada). Aplica a: ActiveWorkbook|Cells Range"
-Attribute EsValidoGenerarGrafico.VB_ProcData.VB_Invoke_Func = " \n23"
+Attribute EsValidoGenerarGrafico.VB_ProcData.VB_Invoke_Func = " \n0"
     'On Error GoTo ErrorHandler
     Dim hoja As Worksheet
     Dim r As Range
@@ -64,8 +62,7 @@ End Function
 
 ' Comprueba si el gráfico activo es válido para invertir ejes
 Public Function EsValidoInvertirEjes() As Boolean
-Attribute EsValidoInvertirEjes.VB_Description = "[modMACROGraficoSensibilidad] Comprueba si el gráfico activo es válido para invertir ejes. Aplica a: Selection|ActiveWorkbook|ActiveSheet"
-Attribute EsValidoInvertirEjes.VB_ProcData.VB_Invoke_Func = " \n23"
+Attribute EsValidoInvertirEjes.VB_ProcData.VB_Invoke_Func = " \n0"
     'On Error Resume Next
     Dim Ch As Chart
     Select Case True

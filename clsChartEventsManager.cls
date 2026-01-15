@@ -12,6 +12,13 @@ Attribute VB_Exposed = False
 '@ModuleDescription "Gestor centralizado de eventos de gráficos (orquestador)"
 Option Explicit
 
+'=============================================================================
+' IMPLEMENTACION IService
+'=============================================================================
+Implements IService
+
+Private mIsInitialized As Boolean
+
 '--------------------------------------------------------------
 ' Eventos públicos: notifican cambios de contexto gráfico
 '--------------------------------------------------------------
@@ -41,9 +48,35 @@ Private Sub Class_Initialize()
 End Sub
 
 Private Sub Class_Terminate()
-    Call StopWatching
+    Call IService_Dispose
     LogInfo "clsChartEventsManager", "[Class_Terminate]"
 End Sub
+
+'-----------------------------------------------------------------------------
+' IService Implementation
+'-----------------------------------------------------------------------------
+
+Private Sub IService_Initialize(ByVal dependencies As Object)
+    If mIsInitialized Then Exit Sub
+    
+    LogInfo "clsChartEventsManager", "[IService_Initialize]"
+    mIsInitialized = True
+End Sub
+
+Private Sub IService_Dispose()
+    LogInfo "clsChartEventsManager", "[IService_Dispose]"
+    Call StopWatching
+    mIsInitialized = False
+End Sub
+
+Private Property Get IService_IsInitialized() As Boolean
+    IService_IsInitialized = mIsInitialized
+End Property
+
+Private Property Get IService_ServiceName() As String
+    IService_ServiceName = "ChartEventsManager"
+End Property
+
 
 '@Description: Inicia la vigilancia de graficos en una hoja (normal o de grafico)
 '@Category: Gráficos

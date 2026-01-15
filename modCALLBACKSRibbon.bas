@@ -1,30 +1,37 @@
 Attribute VB_Name = "modCALLBACKSRibbon"
-' Módulo de integración con la Ribbon: gestiona visibilidad y ejecución de macros para gráficos de sensibilidad
-
-'FIXME: DETECCIÓN Y RECUPERACIÓN DE OBJETOS RIBBON; en ocasiones el ribbon se pierde. Es necesario revisar que lo causa
-'  Creo que casi siempre tiene que ver con que se desactive el XLAM, o se suspende la ejecución de VBA mediante STOP
+' Modulo de integracion con la Ribbon: gestiona visibilidad y ejecucion de macros
+' ==========================================
+' MAPEO DE APIs (version anterior -> version refactorizada):
+'   App.Ribbon.OnXXX          -> App.Events.RibbonEvents.OnXXX
+'   App.Ribbon.InvalidarXXX   -> App.RibbonUI.InvalidarXXX
+'   App.Ribbon.GetRibbonControlEnabled -> App.Events.RibbonEvents.GetRibbonControlEnabled
+' ==========================================
 
 '@Folder "2-Servicios.Excel.Ribbon"
 '@IgnoreModule ProcedureNotUsed
 Option Explicit
 Option Private Module
 
+Private Const MODULE_NAME As String = "modCALLBACKSRibbon"
+
+
 ' ==========================================
 ' CALLBACK: Se llama al cargar el Ribbon
 ' ==========================================
 Sub RibbonOnLoad(xlRibbon As IRibbonUI)
 Attribute RibbonOnLoad.VB_ProcData.VB_Invoke_Func = " \n0"
-    LogInfo "modCALLBACKSRibbon", "[callback: RibbonOnLoad] - Inicio"
+    LogInfo MODULE_NAME, "[callback: RibbonOnLoad] - Inicio"
     On Error GoTo ErrorHandler
-    ' inicializamos la referencia al ribbon en la aplicación
-    App.RibbonHandler = xlRibbon
-    
-    LogInfo "modCALLBACKSRibbon", "[callback: RibbonOnLoad] - ribbon cargado en la interfaz de excel"
-    App.Ribbon.InvalidarRibbon
-    
+
+    ' Inicializamos la referencia al ribbon en la aplicacion
+    App.RibbonUI.Init xlRibbon
+
+    LogInfo MODULE_NAME, "[callback: RibbonOnLoad] - ribbon cargado en la interfaz de excel"
+    App.RibbonUI.InvalidarRibbon
+
     Exit Sub
 ErrorHandler:
-    LogError "modCALLBACKSRibbon", "[callback: RibbonOnLoad] - Error", , Err.Description
+    LogError MODULE_NAME, "[callback: RibbonOnLoad] - Error", , Err.Description
 End Sub
 
 ' ==========================================
@@ -48,7 +55,7 @@ End Sub
 
 Public Sub OnChangeAlturaFilas(control As IRibbonControl)
 Attribute OnChangeAlturaFilas.VB_ProcData.VB_Invoke_Func = " \n0"
-    LogInfo "modCALLBACKSRibbon", "[callback: OnChangeAlturaFilas]"
+    LogInfo MODULE_NAME, "[callback: OnChangeAlturaFilas]"
     On Error GoTo Finalizar
     Call AjustarAltoFilasSegunColor
 Finalizar:
@@ -82,8 +89,8 @@ End Sub
 Public Sub OnVBABackup(control As IRibbonControl)
 Attribute OnVBABackup.VB_ProcData.VB_Invoke_Func = " \n0"
     Call CrearBackupCodigoVBA
-    LogInfo "modCALLBACKSRibbon", "[callback: OnVBABackup] - Creada copia de seguridad del código en " & ThisWorkbook.Path & "\Backups"
-    MsgBox "Creada copia de seguridad del código en " & _
+    LogInfo MODULE_NAME, "[callback: OnVBABackup] - Creada copia de seguridad del codigo en " & ThisWorkbook.Path & "\Backups"
+    MsgBox "Creada copia de seguridad del codigo en " & _
             ThisWorkbook.Path & "\Backups", vbInformation, "Copia de seguridad"
 End Sub
 
@@ -94,80 +101,66 @@ End Sub
 
 Public Sub OnToggleXLAMVisibility(control As IRibbonControl)
 Attribute OnToggleXLAMVisibility.VB_ProcData.VB_Invoke_Func = " \n0"
-    LogInfo "modCALLBACKSRibbon", "[callback: OnToggleXLAMVisibility]"
+    LogInfo MODULE_NAME, "[callback: OnToggleXLAMVisibility]"
     ThisWorkbook.IsAddin = Not (ThisWorkbook.IsAddin)
 End Sub
 
 ' ==========================================
-' CALLBACKS DE APLICACION
+' CALLBACKS DE APLICACION (disparan eventos via RibbonEvents)
 ' ==========================================
 Public Sub OnGenerarGraficosDesdeCurvasRto(control As IRibbonControl)
 Attribute OnGenerarGraficosDesdeCurvasRto.VB_ProcData.VB_Invoke_Func = " \n0"
-    App.Ribbon.OnGenerarGraficosDesdeCurvasRto
+    App.Events.RibbonEvents.OnGenerarGraficosDesdeCurvasRto
 End Sub
 
 Public Sub OnInvertirEjes(control As IRibbonControl)
 Attribute OnInvertirEjes.VB_ProcData.VB_Invoke_Func = " \n0"
-    App.Ribbon.OnInvertirEjes
+    App.Events.RibbonEvents.OnInvertirEjes
 End Sub
 
 Public Sub OnFormatearCGASING(control As IRibbonControl)
 Attribute OnFormatearCGASING.VB_ProcData.VB_Invoke_Func = " \n0"
-    App.Ribbon.OnFormatearCGASING
+    App.Events.RibbonEvents.OnFormatearCGASING
 End Sub
 
 Public Sub OnNuevaOportunidad(control As IRibbonControl)
 Attribute OnNuevaOportunidad.VB_ProcData.VB_Invoke_Func = " \n0"
-    App.Ribbon.OnNuevaOportunidad
+    App.Events.RibbonEvents.OnNuevaOportunidad
 End Sub
 
 Public Sub OnReplaceWithNamesInValidations(control As IRibbonControl)
 Attribute OnReplaceWithNamesInValidations.VB_ProcData.VB_Invoke_Func = " \n0"
-    App.Ribbon.OnReplaceWithNamesInValidations
+    App.Events.RibbonEvents.OnReplaceWithNamesInValidations
 End Sub
 
 '--------------------------------------------------------------
-' CALLBACKS DE CONFIGURACIÓN
+' CALLBACKS DE CONFIGURACION
 '--------------------------------------------------------------
 
-' Callback del botón de configuración
+' Callback del boton de configuracion
 Sub OnConfigurador(control As IRibbonControl)
 Attribute OnConfigurador.VB_ProcData.VB_Invoke_Func = " \n0"
-    App.Ribbon.OnConfigurador
+    App.Events.RibbonEvents.OnMostrarConfigurador
 End Sub
 
 '--------------------------------------------------------------
 ' CALLBACKS DEL DROPDOWN DE OPORTUNIDADES
 '--------------------------------------------------------------
 
-'FIXME: revisar la secuencia de eventos con el dropdown / box!!:
-'  actualmente la sucesión de eventos relacionados con ese drop down no está bien coordinada.
-'  revisar los eventos OpportunityChanged y su relación con CurrOpportunity y ProcesarCambiosEnOportunidades,
-'  y el resto de eventos relacionados
-
 '--------------------------------------------------------------
-' @Description: Callback del botón de refresco de oportunidades.
-' Callback for btnOpRefresh CallbackRefrescarOportunidades
+' @Description: Callback del boton de refresco de oportunidades.
 ' Refresca el listado de subcarpetas y actualiza el desplegable
 ' del Ribbon.
 '--------------------------------------------------------------
-' @Category: Información de archivo
-' @ArgumentDescriptions: control: control del Ribbon que dispara el evento
-'--------------------------------------------------------------
 Public Sub CallbackRefrescarOportunidades(control As IRibbonControl)
 Attribute CallbackRefrescarOportunidades.VB_ProcData.VB_Invoke_Func = " \n0"
-    LogInfo "modCALLBACKSRibbon", "[callback: CallbackRefrescarOportunidades] - control de ribbon activado para actualizar la lista de oportunidades"
+    LogInfo MODULE_NAME, "[callback: CallbackRefrescarOportunidades] - control de ribbon activado para actualizar la lista de oportunidades"
     App.OpportunitiesMgr.actualizarColeccionOportunidades
-    App.Ribbon.InvalidarRibbon
-    'App.Ribbon.InvalidarControl "ddlOportunidades"
+    App.RibbonUI.InvalidarRibbon
 End Sub
 
 '--------------------------------------------------------------
-' @Description: Devuelve el número de oportunidades disponibles (número de elementos del desplegable).
-' Callback for ddlOportunidades getItemCount
-'--------------------------------------------------------------
-' @Category: Información de archivo
-' @ArgumentDescriptions: control: control del Ribbon|getItemCount: valor devuelto
+' @Description: Devuelve el numero de oportunidades disponibles.
 '--------------------------------------------------------------
 Sub GetOportunidadesCount(control As IRibbonControl, ByRef returnedVal)
 Attribute GetOportunidadesCount.VB_ProcData.VB_Invoke_Func = " \n0"
@@ -175,12 +168,7 @@ Attribute GetOportunidadesCount.VB_ProcData.VB_Invoke_Func = " \n0"
 End Sub
 
 '--------------------------------------------------------------
-' @Description: Devuelve la etiqueta de cada oportunidad en el
-' desplegable del Ribbon.
-' Callback for ddlOportunidades getItemLabel
-'--------------------------------------------------------------
-' @Category: Información de archivo
-' @ArgumentDescriptions: control: control del Ribbon|index: índice (base 0)|label: texto mostrado
+' @Description: Devuelve la etiqueta de cada oportunidad.
 '--------------------------------------------------------------
 Sub GetOportunidadesLabel(control As IRibbonControl, Index As Integer, ByRef label)
 Attribute GetOportunidadesLabel.VB_ProcData.VB_Invoke_Func = " \n0"
@@ -188,30 +176,24 @@ Attribute GetOportunidadesLabel.VB_ProcData.VB_Invoke_Func = " \n0"
 End Sub
 
 '--------------------------------------------------------------
-' @Description: Gestiona el evento de selección de oportunidad.
-' Dispara el evento OpportunityChanged de la clase clsOpportunitiesMgr.
-' Callback for ddlOportunidades onAction
-'--------------------------------------------------------------
-' @Category: Información de archivo
-' @ArgumentDescriptions: control: control del Ribbon|id: identificador del control|index: índice seleccionado
+' @Description: Gestiona el evento de seleccion de oportunidad.
 '--------------------------------------------------------------
 Sub OnOportunidadesSeleccionada(control As IRibbonControl, id As String, Index As Integer)
 Attribute OnOportunidadesSeleccionada.VB_ProcData.VB_Invoke_Func = " \n0"
-    LogInfo "modCALLBACKSRibbon", "[callback: OnOportunidadesSeleccionada] - modificada la oportunidad seleccionada en el control de ribbon"
+    LogInfo MODULE_NAME, "[callback: OnOportunidadesSeleccionada] - modificada la oportunidad seleccionada en el control de ribbon"
     App.OpportunitiesMgr.CurrOpportunity = Index
     ' invalidar, refrescar el UI
-    App.Ribbon.InvalidarControl "ddlOportunidades"
+    App.RibbonUI.InvalidarControl "ddlOportunidades"
 End Sub
 
-'Callback for ddlOportunidades getSelectedItemIndex
-' Índice del elemento seleccionado
+' Indice del elemento seleccionado
 Sub GetSelectedOportunidadIndex(control As IRibbonControl, ByRef Index)
 Attribute GetSelectedOportunidadIndex.VB_ProcData.VB_Invoke_Func = " \n0"
     Index = App.OpportunitiesMgr.CurrOpportunity
 End Sub
 
 ' ==========================================
-' CALLBACKS DE SUPERTIPS DINÁMICOS
+' CALLBACKS DE SUPERTIPS DINAMICOS
 ' ==========================================
 Sub GetSupertipRutaBaseOportunidades(control As IRibbonControl, ByRef returnedVal)
 Attribute GetSupertipRutaBaseOportunidades.VB_ProcData.VB_Invoke_Func = " \n0"
@@ -238,7 +220,7 @@ Attribute GetSupertipRutaBaseCalcTmpl.VB_ProcData.VB_Invoke_Func = " \n0"
     returnedVal = GetSupertipRutaBase(App.Configuration.RutaExcelCalcTempl)
 End Sub
 
-' Para mostrar la ruta actual en el supertip (dinámico)
+' Para mostrar la ruta actual en el supertip (dinamico)
 Function GetSupertipRutaBase(ByVal strSettingRuta As String)
 Attribute GetSupertipRutaBase.VB_ProcData.VB_Invoke_Func = " \n0"
     If strSettingRuta = "" Then strSettingRuta = "No configurada"
@@ -248,34 +230,34 @@ End Function
 ' ==========================================
 ' CALLBACKS GetEnabled (habilitar/deshabilitar controles)
 ' ==========================================
-' Habilita el botón de gráfico si el fichero es válido y cumple condiciones internas
+' Habilita el boton de grafico si el fichero es valido y cumple condiciones internas
 Public Sub GetGraficoEnabled(control As IRibbonControl, ByRef enabled)
 Attribute GetGraficoEnabled.VB_ProcData.VB_Invoke_Func = " \n0"
-    enabled = App.Ribbon.GetRibbonControlEnabled(control)
+    enabled = App.Events.RibbonEvents.GetRibbonControlEnabled(control)
 End Sub
 
-' Habilita el botón de inversión de ejes si hay gráfico válido en contexto
+' Habilita el boton de inversion de ejes si hay grafico valido en contexto
 Public Sub GetInvertirEjesEnabled(control As IRibbonControl, ByRef enabled)
 Attribute GetInvertirEjesEnabled.VB_ProcData.VB_Invoke_Func = " \n0"
-    enabled = App.Ribbon.GetRibbonControlEnabled(control)
+    enabled = App.Events.RibbonEvents.GetRibbonControlEnabled(control)
 End Sub
 
-' Habilita el botón de procesado C-GAS-ING si hoja válida en contexto
+' Habilita el boton de procesado C-GAS-ING si hoja valida en contexto
 Public Sub GetCGASINGEnabled(control As IRibbonControl, ByRef enabled)
 Attribute GetCGASINGEnabled.VB_ProcData.VB_Invoke_Func = " \n0"
-    enabled = App.Ribbon.GetRibbonControlEnabled(control)
+    enabled = App.Events.RibbonEvents.GetRibbonControlEnabled(control)
 End Sub
 
-' Habilita el botón de creación de nuevas oportunidades
+' Habilita el boton de creacion de nuevas oportunidades
 Public Sub GetNuevaOportunidadEnabled(control As IRibbonControl, ByRef enabled)
 Attribute GetNuevaOportunidadEnabled.VB_ProcData.VB_Invoke_Func = " \n0"
-    enabled = App.Ribbon.GetRibbonControlEnabled(control)
+    enabled = App.Events.RibbonEvents.GetRibbonControlEnabled(control)
 End Sub
 
-' Habilita el botón de cumplimentación de oferta FULL si hoja válida en contexto
+' Habilita el boton de cumplimentacion de oferta FULL si hoja valida en contexto
 Public Sub GetOfertaFullEnabled(control As IRibbonControl, ByRef enabled)
 Attribute GetOfertaFullEnabled.VB_ProcData.VB_Invoke_Func = " \n0"
-    enabled = True                               ' EsValidoRellenarOferta()
+    enabled = True
 End Sub
 
 Public Sub GetOpenLogEnabled(control As IRibbonControl, ByRef enabled)
@@ -283,12 +265,11 @@ Attribute GetOpenLogEnabled.VB_ProcData.VB_Invoke_Func = " \n0"
     enabled = GetLogFilePath <> ""
 End Sub
 
-' Habilita el botón del menú contextual del Ribbon si el fichero tiene nombre válido
+' Habilita el boton del menu contextual del Ribbon si el fichero tiene nombre valido
 Public Sub GetMenuEnabled(control As IRibbonControl, ByRef enabled)
 Attribute GetMenuEnabled.VB_ProcData.VB_Invoke_Func = " \n0"
     enabled = EsFicheroOportunidad()
     enabled = True
-    'App.Ribbon.InvalidarRibbon
 End Sub
 
 ' ==========================================
@@ -311,7 +292,7 @@ End Sub
 ' ==========================================
 ' CALLBACKS getVisible
 ' ==========================================
-'@Description: Callback getVisible de la pestaña "ABC"
+'@Description: Callback getVisible de la pestana "ABC"
 Public Sub GetTabABCVisible(control As IRibbonControl, ByRef Visible)
 Attribute GetTabABCVisible.VB_ProcData.VB_Invoke_Func = " \n0"
     If Not App() Is Nothing Then
@@ -328,5 +309,4 @@ Attribute GetGrpDeveloperAdminVisible.VB_ProcData.VB_Invoke_Func = " \n0"
         Visible = App.RibbonState.IsAdminGroupVisible
     End If
 End Sub
-
 

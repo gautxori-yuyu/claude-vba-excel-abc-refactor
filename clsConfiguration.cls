@@ -7,12 +7,19 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
-'TODO Migrar de Registry a archivo JSON para configuración (NO PRIORITARIO)
-'TODO Implementar importar/exportar configuración (NO PRIORITARIO)
+'TODO Migrar de Registry a archivo JSON para configuraciï¿½n (NO PRIORITARIO)
+'TODO Implementar importar/exportar configuraciï¿½n (NO PRIORITARIO)
 
 '@Folder "2-Servicios.Configuracion"
 '@IgnoreModule ProcedureNotUsed
 Option Explicit
+
+'=============================================================================
+' IMPLEMENTACION IService
+'=============================================================================
+Implements IService
+
+Private mIsInitialized As Boolean
 
 Private mRutaOportunidades As String
 Private mRutaPlantillas As String
@@ -95,14 +102,52 @@ Public Property Let SAM(newSAM As Integer)
     GuardarSAM newSAM
 End Property
 
+'=============================================================================
+' CICLO DE VIDA (modificado para IService)
+'=============================================================================
+
 Private Sub Class_Initialize()
-    LogInfo "clsConfiguration", "[Class_Initialize]"
-    CargarConfiguracionDesdeRegistro
+    ' NO cargar aqui - esperar a IService_Initialize
+    LogInfo "clsConfiguration", "[Class_Initialize] - instancia creada"
 End Sub
 
 Private Sub Class_Terminate()
     LogInfo "clsConfiguration", "[Class_Terminate]"
 End Sub
+
+'-----------------------------------------------------------------------------
+' IService Implementation
+'-----------------------------------------------------------------------------
+
+Private Sub IService_Initialize(ByVal dependencies As Object)
+    If mIsInitialized Then Exit Sub
+    
+    LogInfo "clsConfiguration", "[IService_Initialize] - Cargando configuracion..."
+    
+    ' Cargar configuracion del registro
+    Call CargarConfiguracionDesdeRegistro
+    
+    mIsInitialized = True
+    
+    LogInfo "clsConfiguration", "[IService_Initialize] - Configuracion cargada"
+End Sub
+
+Private Sub IService_Dispose()
+    LogInfo "clsConfiguration", "[IService_Dispose] - Liberando recursos"
+    mIsInitialized = False
+End Sub
+
+Private Property Get IService_IsInitialized() As Boolean
+    IService_IsInitialized = mIsInitialized
+End Property
+
+Private Property Get IService_ServiceName() As String
+    IService_ServiceName = "Configuration"
+End Property
+
+'-----------------------------------------------------------------------------
+' resto del  codigo
+'-----------------------------------------------------------------------------
 
 Private Sub CargarConfiguracionDesdeRegistro()
     On Error GoTo ErrHandler
@@ -121,14 +166,14 @@ Private Sub CargarConfiguracionDesdeRegistro()
     Exit Sub
 ErrHandler:
     Err.Raise Err.Number, "clsConfiguration.CargarConfiguracionDesdeRegistro", _
-              "Error en la carga de configuración desde registro: " & Err.Description
+              "Error en la carga de configuraciï¿½n desde registro: " & Err.Description
 End Sub
 
 '@Description: Devuelve diccionario de carpetas a monitorear (cacheado)
 '@Note: La cache se invalida automaticamente cuando cambian las rutas
 '
-'TODO: revisar el uso de esta función: Buscar otra forma de que el folder watcher tenga conocimiento de qué carpetas son supervisadas;
-' posiblemente presentando de otra manera el formulario de configuración de carpetas, y creando en él opciones para su selección...
+'TODO: revisar el uso de esta funciï¿½n: Buscar otra forma de que el folder watcher tenga conocimiento de quï¿½ carpetas son supervisadas;
+' posiblemente presentando de otra manera el formulario de configuraciï¿½n de carpetas, y creando en ï¿½l opciones para su selecciï¿½n...
 'TODO: Considerar refactorizar a una estructura mas clara:
 ' - Crear clase clsFolderWatchConfig con propiedades: TipoCarpeta, Ruta, EsMonitoreable
 ' - Exponer como Collection tipada en lugar de Dictionary
@@ -198,30 +243,44 @@ End Function
 
 ' Guarda la lista de Carpetas
 Private Sub GuardarListaCarpetas(ByVal carpetas As Variant, nombreConfig As String)
+    On Error GoTo ErrHandler
+
     Dim lista As String
     Dim key As Variant
-    
-    If UBound(carpetas) < 0 Then
-        Stop
+
+    ' Validar array
+    If Not IsArray(carpetas) Then
+        LogWarning "clsConfiguration", "[GuardarListaCarpetas] - No es un array, borrando lista"
         BorrarListaCarpetas nombreConfig
         Exit Sub
     End If
-    
-    For Each key In carpetas
-        If lista <> "" Then lista = lista & "|"
-        lista = lista & key
-    Next key
-    
+
+    ' Verificar si el array esta vacio
     On Error Resume Next
-    GuardarRuta nombreConfig, lista
-    
-    If Err.Number <> 0 Then
-        LogError "clsConfiguration", "[GuardarListaCarpetas] - No se pudo guardar lista en registro", , Err.Description
-    Else
-        LogDebug "clsConfiguration", "[GuardarListaCarpetas] - Lista de carpetas guardada en registro."
+    Dim upperBound As Long
+    upperBound = UBound(carpetas)
+    If Err.Number <> 0 Or upperBound < 0 Then
+        On Error GoTo ErrHandler
+        LogWarning "clsConfiguration", "[GuardarListaCarpetas] - Array vacio, borrando lista"
+        BorrarListaCarpetas nombreConfig
+        Exit Sub
     End If
-    
-    On Error GoTo 0
+    On Error GoTo ErrHandler
+
+    ' Construir string concatenado
+    For Each key In carpetas
+        If Len(lista) > 0 Then lista = lista & "|"
+        lista = lista & CStr(key)
+    Next key
+
+    ' Guardar en registro
+    GuardarRuta nombreConfig, lista
+    LogDebug "clsConfiguration", "[GuardarListaCarpetas] - Lista guardada: " & nombreConfig
+
+    Exit Sub
+
+ErrHandler:
+    LogError "clsConfiguration", "[GuardarListaCarpetas] - Error guardando lista: " & nombreConfig, Err.Number, Err.Description
 End Sub
 
 ' Obtiene la lista de Carpetas
@@ -230,7 +289,7 @@ Private Function ObtenerListaCarpetas(nombreConfig As String, strDefault As Stri
     ObtenerListaCarpetas = Split(CreateObject("WScript.Shell").RegRead(CFG_PATH_SECTION_RUTAS & nombreConfig & "\"), "|")
     
     If Err.Number <> 0 Then
-        LogWarning "clsConfiguration", "[ObtenerListaCarpetas] - No se encontró lista guardada en registro."
+        LogWarning "clsConfiguration", "[ObtenerListaCarpetas] - No se encontrï¿½ lista guardada en registro."
         ObtenerListaCarpetas = Split(strDefault, "|")
         Call GuardarListaCarpetas(ObtenerListaCarpetas, nombreConfig)
     Else
@@ -243,12 +302,77 @@ End Function
 Private Sub BorrarListaCarpetas(nombreConfig As String)
     On Error Resume Next
     CreateObject("WScript.Shell").RegDelete CFG_PATH_SECTION_RUTAS & nombreConfig & "\"
-    
+
     If Err.Number = 0 Then
-        LogInfo "clsConfiguration", "[BorrarListaCarpetas] - Lista de carpetas eliminada del registro."
+        LogInfo "clsConfiguration", "[BorrarListaCarpetas] - Lista eliminada: " & nombreConfig
     End If
-    
+
     On Error GoTo 0
 End Sub
 
+'=============================================================================
+' FUNCIONES DE DIAGNOSTICO
+'=============================================================================
 
+'@Description: Devuelve un resumen de la configuracion actual (para diagnostico)
+Public Function GetConfigSummary() As String
+    Dim summary As String
+
+    summary = "=== CONFIGURACION ACTUAL ===" & vbCrLf
+    summary = summary & "Oportunidades: " & mRutaOportunidades & vbCrLf
+    summary = summary & "Plantillas: " & mRutaPlantillas & vbCrLf
+    summary = summary & "Ofergas: " & mRutaOfergas & vbCrLf
+    summary = summary & "GasVBNet: " & mRutaGasVBNet & vbCrLf
+    summary = summary & "ExcelCalcs: " & mRutaExcelCalcTempl & vbCrLf
+    summary = summary & "SAM: " & mSAM & vbCrLf
+    summary = summary & "Imgs Compresores: " & ArrayToString(mArrComprImgs) & vbCrLf
+    summary = summary & "Planos PIDs: " & ArrayToString(mArrComprDrawPIDs) & vbCrLf
+    summary = summary & "=============================="
+
+    GetConfigSummary = summary
+End Function
+
+'@Description: Valida que todas las rutas configuradas existan
+Public Function ValidateAllPaths() As Boolean
+    Dim allValid As Boolean
+    allValid = True
+
+    If Not RutaExiste(mRutaOportunidades) Then
+        LogWarning "clsConfiguration", "Ruta Oportunidades no existe: " & mRutaOportunidades
+        allValid = False
+    End If
+
+    If Not RutaExiste(mRutaPlantillas) Then
+        LogWarning "clsConfiguration", "Ruta Plantillas no existe: " & mRutaPlantillas
+        allValid = False
+    End If
+
+    If Not RutaExiste(mRutaOfergas) Then
+        LogWarning "clsConfiguration", "Ruta Ofergas no existe: " & mRutaOfergas
+        allValid = False
+    End If
+
+    If Not RutaExiste(mRutaGasVBNet) Then
+        LogWarning "clsConfiguration", "Ruta GasVBNet no existe: " & mRutaGasVBNet
+        allValid = False
+    End If
+
+    ValidateAllPaths = allValid
+End Function
+
+'@Description: Convierte array a string para diagnostico
+Private Function ArrayToString(arr As Variant) As String
+    On Error Resume Next
+
+    If Not IsArray(arr) Then
+        ArrayToString = "(no es array)"
+        Exit Function
+    End If
+
+    If UBound(arr) < 0 Then
+        ArrayToString = "(vacio)"
+        Exit Function
+    End If
+
+    ArrayToString = Join(arr, "; ")
+End Function

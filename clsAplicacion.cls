@@ -7,473 +7,271 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
-' gestion de la aplicacion 'gestor de oportunidades ABC'
-'@Folder "3-Aplicac (Coord)"
+'@Folder "1.Application"
 Option Explicit
+
+'=============================================================================
+' clsAplicacion - Composition Root (punto de entrada)
+'=============================================================================
+' Responsabilidades:
+'   1. Crear ApplicationContext (estado compartido - NO es un servicio)
+'   2. Crear ServiceManager e inyectarle ApplicationContext
+'   3. Registrar servicios
+'   4. Crear EventCoordinator (Mediator centralizado)
+'   5. Exponer acceso tipado a servicios y contexto
+'   6. Gestionar ciclo de vida (Terminate)
+'=============================================================================
+' ARQUITECTURA:
+'   - ApplicationContext: Estado compartido (RibbonState, ChartState, etc.)
+'   - ServiceManager: Contenedor DI con acceso tipado (sin strings)
+'   - EventCoordinator: Mediator para eventos entre servicios
+'   - Servicios: Implementan IService, acceden al estado via AppContext
+'=============================================================================
 
 Private Const MODULE_NAME As String = "clsAplicacion"
 
-Private m_bChartActive As Boolean
+'=============================================================================
+' INFRAESTRUCTURA (3 componentes principales)
+'=============================================================================
+Private mServiceManager As clsServiceManager
+Private mEventCoordinator As clsEventCoordinator
+Private mAppContext As clsApplicationContext
 
-' lo siguiente es para controlar **SUCESOS EN LA COLECCION clsOpportunitiesMgr QUE HACEN
-' QUE TENGA QUE INTERVENIR clsAplicacion (para coordinar con clsFileManager, o con el Ribbon, ...)
-'@MemberAttribute VB_VarHelpID, -1
-Private WithEvents mOpportunities As clsOpportunitiesMgr
-Attribute mOpportunities.VB_VarHelpID = -1
-Private WithEvents mChartManager As clsChartEventsManager
-Attribute mChartManager.VB_VarHelpID = -1
-Private WithEvents mFSMonitoringCoord As clsFSMonitoringCoord
-Attribute mFSMonitoringCoord.VB_VarHelpID = -1
+'=============================================================================
+' ESTADO (componentes que viven en ApplicationContext - NO son servicios)
+'=============================================================================
+Private mRibbonState As clsRibbonState
+Private mChartState As clsChartState
 
-Private WithEvents mRibbonState As clsRibbonState
-Attribute mRibbonState.VB_VarHelpID = -1
-Private WithEvents evRibbon As clsRibbonEvents
-Attribute evRibbon.VB_VarHelpID = -1
+'=============================================================================
+' FLAG DE INICIALIZACION
+'=============================================================================
+Private mIsInitialized As Boolean
 
-Private mConfiguration As clsConfiguration
-Private mFileMgr As clsFileManager
-Private WithEvents ctx As clsExecutionContext
-Attribute ctx.VB_VarHelpID = -1
+'=============================================================================
+' INICIALIZACION
+'=============================================================================
 
-Public Property Get bChartActive() As Boolean
-    bChartActive = m_bChartActive
+Private Sub Class_Initialize()
+    ' NO hacer nada pesado aqui
+    ' Esperar a que ThisWorkbook llame Initialize()
+End Sub
+
+Public Sub Initialize()
+    If mIsInitialized Then Exit Sub
+
+    LogInfo MODULE_NAME, "=========================================="
+    LogInfo MODULE_NAME, "Iniciando aplicacion..."
+    LogInfo MODULE_NAME, "=========================================="
+
+    ' PASO 1: Crear objetos de estado (NO son servicios)
+    Call CreateStateObjects
+
+    ' PASO 2: Crear ApplicationContext y componerlo con los estados
+    Call CreateApplicationContext
+
+    ' PASO 3: Crear ServiceManager e inyectarle ApplicationContext
+    Set mServiceManager = New clsServiceManager
+    mServiceManager.Initialize mAppContext
+
+    ' PASO 4: Registrar servicios (solo los que implementan IService)
+    Call RegisterServices
+
+    ' PASO 5: Crear EventCoordinator (Mediator) y conectarlo
+    Set mEventCoordinator = New clsEventCoordinator
+    mEventCoordinator.Initialize mServiceManager, mAppContext
+
+    mIsInitialized = True
+
+    LogInfo MODULE_NAME, "=========================================="
+    LogInfo MODULE_NAME, "Aplicacion inicializada - " & _
+            mServiceManager.GetServiceCount & " servicios registrados"
+    LogInfo MODULE_NAME, "=========================================="
+End Sub
+
+'=============================================================================
+' CREACION DE OBJETOS DE ESTADO
+'=============================================================================
+
+Private Sub CreateStateObjects()
+    LogInfo MODULE_NAME, "Creando objetos de estado..."
+
+    ' Estado del Ribbon (NO es un servicio)
+    Set mRibbonState = New clsRibbonState
+
+    ' Estado de graficos (NO es un servicio)
+    Set mChartState = New clsChartState
+
+    LogInfo MODULE_NAME, "Objetos de estado creados"
+End Sub
+
+'=============================================================================
+' CREACION DE APPLICATION CONTEXT
+'=============================================================================
+
+Private Sub CreateApplicationContext()
+    LogInfo MODULE_NAME, "Creando ApplicationContext..."
+
+    Set mAppContext = New clsApplicationContext
+
+    ' Nota: ExecutionContext se crea como servicio y se pasa despues
+    ' Por ahora inicializamos con Nothing y se actualizara despues
+    ' de registrar los servicios
+
+    LogInfo MODULE_NAME, "ApplicationContext creado"
+End Sub
+
+'=============================================================================
+' REGISTRO DE SERVICIOS
+'=============================================================================
+
+Private Sub RegisterServices()
+    LogInfo MODULE_NAME, "Registrando servicios..."
+
+    '------------------------------------------------------------------------
+    ' SERVICIOS SINGLETON (implementan IService, tienen ciclo de vida)
+    '------------------------------------------------------------------------
+
+    ' Configuration - carga desde registro
+    mServiceManager.RegisterSingleton New clsConfiguration
+
+    ' ExecutionContext - suscripcion a eventos de Application
+    Dim execCtx As clsExecutionContext
+    Set execCtx = New clsExecutionContext
+    mServiceManager.RegisterSingleton execCtx
+
+    ' Ahora que tenemos ExecutionContext, inicializar ApplicationContext completo
+    mAppContext.Initialize mRibbonState, execCtx, mChartState
+
+    ' FileManager - tracking de archivos
+    mServiceManager.RegisterSingleton New clsFileManager
+
+    ' OpportunitiesMgr - gestion de carpetas de oportunidades
+    mServiceManager.RegisterSingleton New clsOpportunitiesMgr
+
+    ' ChartEventsManager - gestion de eventos de graficos
+    mServiceManager.RegisterSingleton New clsChartEventsManager
+
+    ' FSMonitoringCoord - monitoreo del sistema de archivos
+    mServiceManager.RegisterSingleton New clsFSMonitoringCoord
+
+    ' RibbonUI - gestion del puntero IRibbonUI
+    mServiceManager.RegisterSingleton New clsRibbonUI
+
+    LogInfo MODULE_NAME, "Servicios registrados: " & mServiceManager.GetServiceCount
+End Sub
+
+'=============================================================================
+' API PUBLICA - Acceso a infraestructura
+'=============================================================================
+
+'@Description: Acceso al gestor de servicios (con propiedades tipadas)
+Public Property Get Services() As clsServiceManager
+    Set Services = mServiceManager
 End Property
+
+'@Description: Acceso al contexto de aplicacion (estado compartido)
+Public Property Get Context() As clsApplicationContext
+    Set Context = mAppContext
+End Property
+
+'@Description: Acceso al coordinador de eventos (Mediator)
+Public Property Get Events() As clsEventCoordinator
+    Set Events = mEventCoordinator
+End Property
+
+'@Description: Indica si la aplicacion esta inicializada
+Public Property Get IsInitialized() As Boolean
+    IsInitialized = mIsInitialized
+End Property
+
+'=============================================================================
+' API PUBLICA - Acceso tipado a servicios (facade conveniente)
+'=============================================================================
+' Estos accesos delegan al ServiceManager para consistencia.
+' Son atajos para evitar escribir App.Services.XXX
+'=============================================================================
 
 Public Property Get Configuration() As clsConfiguration
-    Set Configuration = mConfiguration
+    Set Configuration = mServiceManager.Configuration
 End Property
 
-Public Property Get executionContext() As clsExecutionContext
-    Set executionContext = ctx
+Public Property Get ExecutionContext() As clsExecutionContext
+    Set ExecutionContext = mServiceManager.ExecutionContext
 End Property
 
-Public Property Get FileMgr() As clsFileManager
-    Set FileMgr = mFileMgr
+Public Property Get FileManager() As clsFileManager
+    Set FileManager = mServiceManager.FileManager
 End Property
 
 Public Property Get OpportunitiesMgr() As clsOpportunitiesMgr
-    Set OpportunitiesMgr = mOpportunities
+    Set OpportunitiesMgr = mServiceManager.OpportunitiesMgr
 End Property
 
-Public Property Get ChartManager() As clsChartEventsManager
-    Set ChartManager = mChartManager
+Public Property Get ChartEventsManager() As clsChartEventsManager
+    Set ChartEventsManager = mServiceManager.ChartEventsManager
 End Property
 
-Public Property Get Ribbon() As clsRibbonEvents
-    Set Ribbon = evRibbon
+Public Property Get FSMonitoringCoord() As clsFSMonitoringCoord
+    Set FSMonitoringCoord = mServiceManager.FSMonitoringCoord
 End Property
+
+Public Property Get RibbonUI() As clsRibbonUI
+    Set RibbonUI = mServiceManager.RibbonUI
+End Property
+
+'=============================================================================
+' API PUBLICA - Acceso a estado (desde ApplicationContext)
+'=============================================================================
 
 Public Property Get RibbonState() As clsRibbonState
     Set RibbonState = mRibbonState
 End Property
 
-Public Property Let RibbonHandler(xlRibbon As IRibbonUI)
-    If evRibbon Is Nothing Then Set evRibbon = New clsRibbonEvents
-    Call evRibbon.Init(xlRibbon)
-    LogInfo MODULE_NAME, "[RibbonHandler] - conectada instancia WithEvents de ribbon para gestion de eventos"
+Public Property Get ChartState() As clsChartState
+    Set ChartState = mChartState
 End Property
 
-' -------------------------------------------------------------
-' Class_Initialize: SOLO inicialización mínima (ligera y segura)
-' NO debe hacer trabajo pesado ni depender de App
-' -------------------------------------------------------------
-Private Sub Class_Initialize()
-    On Error GoTo ErrHandler
+'=============================================================================
+' TERMINACION
+'=============================================================================
 
-    LogInfo MODULE_NAME, "[Class_Initialize] - Iniciando aplicacion"
-    
-    Set evRibbon = New clsRibbonEvents
-    Set mRibbonState = New clsRibbonState
-    mRibbonState.Modo = Ribbon_OpportunityOnly
-    
-    ' 1. Configuración (sin dependencias)
-    Set mConfiguration = New clsConfiguration
-    
-    ' 2. Contexto de ejecución (suscripción a eventos de Application) (antes del FileManager y demás)
-    Set ctx = New clsExecutionContext
-    ctx.Initialize
-    LogInfo MODULE_NAME, "[Class_Initialize] - ctx suscrito a eventos de Application"
-
-    ' 3. FileManager (recibe el contexto compartido)
-    Set mFileMgr = New clsFileManager
-    mFileMgr.Initialize ctx
-    InitFileManager
-
-    ' 4. OpportunitiesMgr
-    Set mOpportunities = New clsOpportunitiesMgr
-    ' Inicialización explícita
-    mOpportunities.SetBaseFolder mConfiguration.RutaOportunidades
-    
-    ' 5. ChartManager (gestion de eventos del usuario sobre charts de excel (seleccion; etc)
-    Set mChartManager = New clsChartEventsManager
-    
-    ' 6. Watcher - recibe el diccionario de carpetas como parametro
-    Set mFSMonitoringCoord = New clsFSMonitoringCoord
-    mFSMonitoringCoord.IniciarMonitoreo mConfiguration.oDicFoldersToWatch
-    
-    LogInfo MODULE_NAME, "[Class_Initialize] - inicialización completada"
-    
-    ' como consecuencia de introducir el watcher, habrá que gestionar la actualizacion del ribbon, con los cambios que se graben en el
-    ' registro; de ello se encarga la aplicacion (la configuracion NO sabe si hay un control dinámico de las carpetas, o si su contenido
-    ' es estático)
-    ' LA PREGUNTA: DEL RIBBON SOLO SABE LA APLICACION, o trmaiben sabe el watcher? (encomiendo al modulo del watcher, o a la app, la actualiz del ribbon?)
-
-    Exit Sub
-ErrHandler:
-    Err.Raise Err.Number, "clsAplicacion.Class_Initialize", _
-              "Error inicializando aplicación: " & Err.Description
-End Sub
-
-' -------------------------------------------------------------
-' Class_Terminate: limpieza
-' -------------------------------------------------------------
-Private Sub Class_Terminate()
-    Terminate
-End Sub
-
-' Método Terminate para ser llamado desde ThisWorkbook.Workbook_BeforeClose/Uninstall
 Public Sub Terminate()
-    LogInfo MODULE_NAME, "[Terminate] - Iniciando limpieza de la aplicacion"
+    If Not mIsInitialized Then Exit Sub
 
-    On Error Resume Next  ' Asegurar que la limpieza continúa aunque haya errores
+    LogInfo MODULE_NAME, "=========================================="
+    LogInfo MODULE_NAME, "Terminando aplicacion..."
+    LogInfo MODULE_NAME, "=========================================="
 
-    ' 1. Liberar FolderWatcher primero (tiene recursos COM externos)
-    Set mFSMonitoringCoord = Nothing
-
-    ' 2. Liberar Ribbon events
-    If Not evRibbon Is Nothing Then
-        evRibbon.StopEvents
-        Set evRibbon = Nothing
-    End If
-
-    ' 3. Liberar managers
-    Set mConfiguration = Nothing
-    Set mOpportunities = Nothing
-    Set mFileMgr = Nothing
-    Set mChartManager = Nothing
-    Set mRibbonState = Nothing
-
-    ' 4. Liberar contexto de ejecución (desuscribe de Application)
-    Set ctx = Nothing
-
-    LogInfo MODULE_NAME, "[Terminate] - Limpieza completada"
-End Sub
-
-' -------------------------------------------------------------
-' InitFileManager: GESTIONA LA COLECCIÓN DE WORKBOOKS
-' (Es responsabilidad de clsAplicacion, NO de clsFileManager)
-' -------------------------------------------------------------
-Public Sub InitFileManager()
-    LogInfo MODULE_NAME, "[InitFileManager]"
-    
-    On Error GoTo ErrHandler
-    
-    Dim oWorkBook As Workbook
-    Dim TrackedCount As Long
-    
-    ' Trackear todos los workbooks abiertos
-    For Each oWorkBook In Application.Workbooks
-        mFileMgr.GetOrTrackWorkbook oWorkBook
-        TrackedCount = TrackedCount + 1
-    Next oWorkBook
-    
-    ' Establecer el archivo activo
-    Dim wb As Workbook
-    Set wb = ctx.Workbook
-    If Not wb Is Nothing Then
-        Set mFileMgr.ActiveWb = mFileMgr.GetOrTrackWorkbook(wb)
-    End If
-
-    LogInfo MODULE_NAME, "[InitFileManager] Workbooks tracked: " & TrackedCount
-    
-    Exit Sub
-ErrHandler:
-    LogError MODULE_NAME, "[InitFileManager] Error inicializando tracking de workbooks", , Err.Description
-    Err.Raise Err.Number, "clsAplicacion.InitFileManager", _
-              "Error inicializando tracking de workbooks: " & Err.Description
-End Sub
-
-' ==========================================
-' gestion del ribbon
-' ==========================================
-'@Description: Conmuta cíclicamente el modo del Ribbon (admin ? opp ? user ? admin)
-'@Scope: público
-'@Category: UI / Ribbon
-Public Sub ToggleRibbonMode()
-    mRibbonState.ToggleModo
-    Call ActivarTabSiProcede
-End Sub
-
-Private Sub ActivarTabSiProcede()
+    ' Liberar en orden inverso a la creacion
     On Error Resume Next
 
-    If evRibbon Is Nothing Then Exit Sub
-
-    If EsFicheroOportunidad() Then
-        evRibbon.ActivarTab "tabOfertasEspecial"
+    ' 1. EventCoordinator primero (deja de escuchar eventos)
+    If Not mEventCoordinator Is Nothing Then
+        mEventCoordinator.Dispose
+        Set mEventCoordinator = Nothing
     End If
-End Sub
 
-Private Sub mRibbonState_StateChanged()
-    evRibbon.InvalidarRibbon
-End Sub
-
-' ==================================================================
-' GESTION DE EVENTOS
-' ==================================================================
-
-' -------------------------------------------------------------
-' Eventos de clsExecutionContext (propagados desde Application)
-' -------------------------------------------------------------
-
-'@Description: Se dispara cuando se activa un workbook (desde ctx)
-'@Category: Gráficos
-'@Scope: Grafico seleccionado
-'@ArgumentDescriptions: wb As Workbook
-Private Sub ctx_WorkbookActivated(ByVal wb As Workbook)
-    LogDebug MODULE_NAME, "[ctx_WorkbookActivated] " & wb.Name
-    mChartManager.RefreshCurrentSheet
-End Sub
-
-'@Description: Se dispara al activar una hoja; inicia vigilancia de graficos
-'@Category: Gráficos
-'@Scope: Grafico seleccionado
-'@ArgumentDescriptions: sh As Object
-Private Sub ctx_SheetActivated(ByVal sh As Object)
-    On Error GoTo ErrHandler
-
-    LogDebug MODULE_NAME, "[ctx_SheetActivated] " & TypeName(sh) & " '" & sh.Name & "'"
-    mChartManager.WatchSheet sh
-    evRibbon.InvalidarControl "btnGenerarGraficos"
-    evRibbon.InvalidarControl "btnCGASING"
-    Exit Sub
-ErrHandler:
-    LogError MODULE_NAME, "[ctx_SheetActivated] Error", , Err.Description
-End Sub
-
-'@Description: Se dispara al desactivar una hoja; detiene vigilancia de graficos
-'@Category: Gráficos
-'@Scope: Grafico seleccionado
-'@ArgumentDescriptions: sh As Object
-Private Sub ctx_SheetDeactivated(ByVal sh As Object)
-    On Error GoTo ErrHandler
-
-    LogDebug MODULE_NAME, "[ctx_SheetDeactivated] '" & sh.Name & "'"
-    mChartManager.StopWatching
-    evRibbon.InvalidarControl "btnGenerarGraficos"
-    evRibbon.InvalidarControl "btnCGASING"
-    Exit Sub
-ErrHandler:
-    LogError MODULE_NAME, "[ctx_SheetDeactivated] Error", , Err.Description
-End Sub
-
-' -------------------------------------------------------------
-' Evento: cambios detectados en oportunidades (desde OpportunitiesMgr)
-' -------------------------------------------------------------
-Private Sub mOpportunities_OpportunityCollectionUpdate(ByVal cambios As String)
-    LogInfo MODULE_NAME, "[callback: clsOpportunitiesMgr OpportunityCollectionUpdate] - cambios detectados: " & cambios
-    
-    ' Actualizar ribbon - usar Invalidate en lugar de InvalidarControl
-    If Not evRibbon Is Nothing Then
-        'evRibbon.InvalidarRibbon
-        evRibbon.InvalidarControl "ddlOportunidades"
-        LogDebug MODULE_NAME, "[mOpportunities_OpportunityCollectionUpdate] - Ribbon invalidado"
+    ' 2. ServiceManager (dispone todos los servicios)
+    If Not mServiceManager Is Nothing Then
+        mServiceManager.DisposeAll
+        Set mServiceManager = Nothing
     End If
-End Sub
-'TODO: Extraer la lógica de clsExcelFile A una función (En principio se mantendrá en Celesa aplicación pero es posible que se lleve a otra clase)
-Private Sub mOpportunities_currOpportunityChanged(ByVal Index As Long, ByVal Path As String)
-    LogInfo MODULE_NAME, "[callback: clsOpportunitiesMgr currOpportunityChanged] - Oportunidad seleccionada: " & Path
-    
-    Dim f As clsExcelFile
-    Set f = mFileMgr.ActiveWb
-    If Not f Is Nothing Then
-        If f.DebeMoverseAOp(Path, mConfiguration.RutaOportunidades) Then
-            f.MoverAOp Path, mConfiguration.RutaOportunidades
-        End If
-    End If
-    ' (Aquí no tiene sentido invalidar el ribbon, esto no tiene nada que ver con ribbon, SOLO LÓGICA DE NEGOCIO)
-End Sub
 
-' -------------------------------------------------------------
-' Eventos de mFSMonitoringCoord (cambios en sistema de archivos)
-' clsAplicacion recibe estos eventos y delega a OpportunitiesMgr
-' -------------------------------------------------------------
+    ' 3. Estado
+    Set mRibbonState = Nothing
+    Set mChartState = Nothing
 
-Private Sub mFSMonitoringCoord_OpportunityCreated(ByVal parentFolder As String, ByVal subfolderName As String)
-    LogDebug MODULE_NAME, "[mFSMonitoringCoord_OpportunityCreated] " & subfolderName
-    mOpportunities.ProcesarCambiosEnOportunidades subfolderName
+    ' 4. ApplicationContext
+    Set mAppContext = Nothing
+
+    mIsInitialized = False
+
+    LogInfo MODULE_NAME, "Aplicacion terminada"
+    LogInfo MODULE_NAME, "=========================================="
 End Sub
 
-Private Sub mFSMonitoringCoord_OpportunityDeleted(ByVal parentFolder As String, ByVal subfolderName As String)
-    LogDebug MODULE_NAME, "[mFSMonitoringCoord_OpportunityDeleted] " & subfolderName
-    mOpportunities.ProcesarCambiosEnOportunidades subfolderName
+Private Sub Class_Terminate()
+    Call Terminate
 End Sub
-
-Private Sub mFSMonitoringCoord_OpportunityRenamed(ByVal parentFolder As String, ByVal oldName As String, ByVal newName As String)
-    LogDebug MODULE_NAME, "[mFSMonitoringCoord_OpportunityRenamed] " & oldName & " -> " & newName
-    mOpportunities.ProcesarCambiosEnOportunidades oldName
-    mOpportunities.ProcesarCambiosEnOportunidades newName
-End Sub
-
-Private Sub mFSMonitoringCoord_OpportunityItemDeleted(ByVal folder As String, ByVal fileName As String)
-    LogDebug MODULE_NAME, "[mFSMonitoringCoord_OpportunityItemDeleted] " & fileName
-    mOpportunities.ProcesarCambiosEnItemsOportunidad fileName
-End Sub
-
-Private Sub mFSMonitoringCoord_OpportunityItemRenamed(ByVal folder As String, ByVal oldName As String, ByVal newName As String)
-    LogDebug MODULE_NAME, "[mFSMonitoringCoord_OpportunityItemRenamed] " & oldName & " -> " & newName
-    mOpportunities.ProcesarCambiosEnItemsOportunidad newName
-End Sub
-
-Private Sub mFSMonitoringCoord_TemplateCreated(ByVal folder As String, ByVal fileName As String)
-    LogDebug MODULE_NAME, "[mFSMonitoringCoord_TemplateCreated] " & fileName
-    ' TODO: Implementar logica de actualizacion de plantillas si es necesario
-End Sub
-
-Private Sub mFSMonitoringCoord_TemplateChanged(ByVal folder As String, ByVal fileName As String)
-    LogDebug MODULE_NAME, "[mFSMonitoringCoord_TemplateChanged] " & fileName
-    ' TODO: Notificar cambio en plantilla si es necesario
-End Sub
-
-Private Sub mFSMonitoringCoord_GasFileCreated(ByVal folder As String, ByVal fileName As String)
-    LogDebug MODULE_NAME, "[mFSMonitoringCoord_GasFileCreated] " & fileName
-    ' TODO: Implementar logica de sincronizacion Gas si es necesario
-End Sub
-
-Private Sub mFSMonitoringCoord_GasFileChanged(ByVal folder As String, ByVal fileName As String)
-    LogDebug MODULE_NAME, "[mFSMonitoringCoord_GasFileChanged] " & fileName
-    ' TODO: Actualizar referencias Gas si es necesario
-End Sub
-
-Private Sub mFSMonitoringCoord_MonitoringError(ByVal folder As String, ByVal errorMessage As String)
-    LogError MODULE_NAME, "[mFSMonitoringCoord_MonitoringError] " & folder & ": " & errorMessage
-
-    ' Mostrar al usuario solo errores criticos
-    If InStr(1, errorMessage, "Limite", vbTextCompare) > 0 Or _
-       InStr(1, errorMessage, "no encontrada", vbTextCompare) > 0 Then
-        MsgBox "Error en monitoreo de carpeta:" & vbCrLf & _
-               folder & vbCrLf & vbCrLf & _
-               errorMessage, vbExclamation, "FolderWatcher"
-    End If
-End Sub
-
-Private Sub mFSMonitoringCoord_MonitoringReconnected(ByVal folder As String, ByVal attempts As Long)
-    LogInfo MODULE_NAME, "[mFSMonitoringCoord_MonitoringReconnected] " & folder & " tras " & attempts & " intentos"
-End Sub
-
-Private Sub mFSMonitoringCoord_MonitoringFailed(ByVal folder As String, ByVal reason As String)
-    LogError MODULE_NAME, "[mFSMonitoringCoord_MonitoringFailed] " & folder & ": " & reason
-
-    MsgBox "El monitoreo de la carpeta ha fallado permanentemente:" & vbCrLf & _
-           folder & vbCrLf & vbCrLf & _
-           "Razon: " & reason & vbCrLf & vbCrLf & _
-           "Es posible que la carpeta no este accesible o haya problemas de red.", _
-           vbExclamation, "FolderWatcher - Reconexion Fallida"
-End Sub
-
-' -------------------------------------------------------------
-' Eventos de cambio de seleccion de charts (desde ChartManager)
-' -------------------------------------------------------------
-
-Private Sub mChartManager_ChartActivated(cht As Chart)
-    LogDebug MODULE_NAME, "[callback: clsChartEventsManager ChartActivated] - Gráfico activado: " & cht.Name
-    m_bChartActive = True
-    ' Aquí decides:
-    ' - ¿Invalidar ribbon?
-    ' - ¿Cargar datos del gráfico?
-    ' - ¿Actualizar estado de la oportunidad?
-    evRibbon.InvalidarControl "btnInvertirSeries"
-End Sub
-
-Private Sub mChartManager_ChartDeactivated(cht As Chart)
-    LogDebug MODULE_NAME, "[callback: clsChartEventsManager ChartActivated] - Gráfico DESactivado: " & cht.Name
-    m_bChartActive = False
-    evRibbon.InvalidarControl "btnInvertirSeries"
-End Sub
-
-' -------------------------------------------------------------
-' Eventos de comandos activados desde el Ribbon
-' -------------------------------------------------------------
-
-Private Sub evRibbon_GenerarGraficosDesdeCurvasRto()
-    LogDebug MODULE_NAME, "[callback: clsRibbonEvents GenerarGraficosDesdeCurvasRto]"
-    On Error GoTo ErrorHandler
-    Application.ScreenUpdating = False
-    Call EjecutarGraficoEnLibroActivo
-    mChartManager.RefreshCurrentSheet
-
-ErrorHandler:
-    Application.ScreenUpdating = True
-End Sub
-
-Private Sub evRibbon_InvertirEjes()
-    LogDebug MODULE_NAME, "[callback: clsRibbonEvents InvertirEjes]"
-    On Error GoTo ErrorHandler
-    Application.ScreenUpdating = False
-    Call InvertirEjesDelGraficoActivo
-ErrorHandler:
-    Application.ScreenUpdating = True
-End Sub
-
-Private Sub evRibbon_FormatearCGASING()
-    LogDebug MODULE_NAME, "[callback: clsRibbonEvents FormatearCGASING]"
-    On Error GoTo ErrorHandler
-    'Application.ScreenUpdating = False
-    Call FixCGASING
-ErrorHandler:
-    Application.ScreenUpdating = True
-End Sub
-
-'@Description: Muestra el formulario de configuracion de la aplicacion
-'@Scope: Private (evento de ribbon)
-'@ArgumentDescriptions: (sin argumentos)
-'@Returns: (ninguno)
-'@Dependencies: frmConfiguracion
-'@Note: Usa instanciacion explicita para evitar problemas de memoria con la instancia predeterminada
-Private Sub evRibbon_Configurador()
-    Dim frm As frmConfiguracion
-    Set frm = New frmConfiguracion
-    frm.Show vbModal
-    Unload frm
-    Set frm = Nothing
-End Sub
-
-Private Sub evRibbon_NuevaOportunidad()
-    OpportunitiesMgr.CreaOportunidad
-    'evRibbon.InvalidarControl "ddlOportunidades"
-End Sub
-
-Private Sub evRibbon_ReplaceWithNamesInValidations()
-    On Error GoTo ErrorHandler
-    'Application.ScreenUpdating = False
-    Call modAPPBudgetQuotesUtilids.AplicarNombresAValidacionesCeldasActWBConReporte
-ErrorHandler:
-    'Application.ScreenUpdating = True
-End Sub
-
-'@Description: Devuelve True si, en el estado actual de la aplicación,
-'             tiene sentido habilitar la acción "Invertir Ejes".
-'@Scope: público (consulta de estado desde el Ribbon/modRibbonCallbacks)
-'@ArgumentDescriptions: (sin argumentos)
-'@Returns: Boolean | True si es posible invertir ejes ahora mismo.
-'@Category: UI / Estado consolidado
-Public Property Get bCanInvertAxes() As Boolean
-    On Error GoTo ErrHandler
-    
-    bCanInvertAxes = m_bChartActive
-    If bCanInvertAxes Then bCanInvertAxes = mFileMgr.AnalizarArchivoActivo.TipoDetectado = CGASING_CurvasRendimiento
-    If Not bCanInvertAxes Then Exit Property
-    Dim oExcelFile As clsExcelFile
-    Set oExcelFile = mFileMgr.ActiveWb
-    If Not oExcelFile Is Nothing Then
-        bCanInvertAxes = oExcelFile.EsValidoInvertirEjes
-    Else
-        bCanInvertAxes = False
-    End If
-    Exit Property
-ErrHandler:
-    LogError MODULE_NAME, "[bCanInvertAxes] Error", , Err.Description
-    bCanInvertAxes = False
-End Property
-
 

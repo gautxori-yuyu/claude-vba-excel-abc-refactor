@@ -35,7 +35,7 @@ Public Description As String
 Public Category As String
 Public Example As String                         ' Ejemplo de uso
 Public Raises As String                          ' Errores que puede lanzar
-Public Dependencies As String                    ' Dependencias de otros procedimientos
+Public dependencies As String                    ' Dependencias de otros procedimientos
 
 ' Constructor para fácil inicialización
 'TODO: revisar el codigo para evitar las restricciones en el orden de las llamadas
@@ -115,7 +115,7 @@ Private Function TipoProcedimiento(ByVal firmaNormalizada As String) As ProcType
     Set re = Nothing: Set re = CreateObject("VBScript.RegExp")
     On Error GoTo ErrorHandler
     re.Pattern = "^\s*((?:(?:Public|Private|Friend|Static)\s+){1,2})?\s*(Function|Sub|Property\s+(?:Get|Set|Let))\s*(\S+)\s*\(\s*(.*)\)"
-    If re.Test(firmaNormalizada) Then
+    If re.test(firmaNormalizada) Then
         Dim m As Object: Set m = re.Execute(firmaNormalizada)(0)
         acceso = Replace(LCase$(Trim$(m.SubMatches(0))), " static", "")
         tipo = LCase$(Trim$(m.SubMatches(1)))
@@ -185,31 +185,31 @@ Private Function ParsearCodeParaDeducirContexto(CodeText As String) As String
     re.IgnoreCase = True
     re.Pattern = "\bThisWorkBook\b"
     ' lo siguiente sería una 'condicion de error' muy probable: no debería, en general, manipular el XLAM
-    If re.Test(CodeText) Then
+    If re.test(CodeText) Then
         If ParsearCodeParaDeducirContexto <> "" Then _
                 ParsearCodeParaDeducirContexto = ParsearCodeParaDeducirContexto & "|"
         ParsearCodeParaDeducirContexto = "ThisWorkbook"
     End If
     re.Pattern = "\bSelection\b"
-    If re.Test(CodeText) Then
+    If re.test(CodeText) Then
         If ParsearCodeParaDeducirContexto <> "" Then _
                 ParsearCodeParaDeducirContexto = ParsearCodeParaDeducirContexto & "|"
         ParsearCodeParaDeducirContexto = "Selection"
     End If
     re.Pattern = "\bActiveWorkbook\b"
-    If re.Test(CodeText) Then
+    If re.test(CodeText) Then
         If ParsearCodeParaDeducirContexto <> "" Then _
                 ParsearCodeParaDeducirContexto = ParsearCodeParaDeducirContexto & "|"
         ParsearCodeParaDeducirContexto = ParsearCodeParaDeducirContexto & "ActiveWorkbook"
     End If
     re.Pattern = "\bActiveSheet\b"
-    If re.Test(CodeText) Then
+    If re.test(CodeText) Then
         If ParsearCodeParaDeducirContexto <> "" Then _
                 ParsearCodeParaDeducirContexto = ParsearCodeParaDeducirContexto & "|"
         ParsearCodeParaDeducirContexto = ParsearCodeParaDeducirContexto & "ActiveSheet"
     End If
     re.Pattern = "\b(?:Range|Cells)\b"
-    If re.Test(CodeText) Then
+    If re.test(CodeText) Then
         If ParsearCodeParaDeducirContexto <> "" Then _
                 ParsearCodeParaDeducirContexto = ParsearCodeParaDeducirContexto & "|"
         ParsearCodeParaDeducirContexto = ParsearCodeParaDeducirContexto & "Cells Range"
@@ -249,7 +249,7 @@ End Function
 Private Function ComponerArgumentDescriptions(ByVal firmaNormalizada As String) As String
     Dim re As Object: Set re = CreateObject("VBScript.RegExp")
     re.Pattern = "^[^'\(]+\((.*?)\)\s*(?:'.+)?$"
-    If re.Test(firmaNormalizada) Then
+    If re.test(firmaNormalizada) Then
         Dim args As String
         args = Trim$(re.Execute(firmaNormalizada)(0).SubMatches(0))
         If args = "" Then
@@ -313,12 +313,12 @@ Private Function ParsearMetadataCompleta(CodeText As String)
 
             ' Extraer valor de formatos ("valor") o "valor"
             regEx.Pattern = "^\s*\(?\s*""(.*?)""\s*\)?\s*$"
-            If regEx.Test(Value) Then Value = regEx.Execute(Value).Item(0).SubMatches(0)
+            If regEx.test(Value) Then Value = regEx.Execute(Value).Item(0).SubMatches(0)
 
             ' Tambien soportar formato con comillas simples ('valor')
             If Value = "" Then
                 regEx.Pattern = "^\s*\(?\s*'(.*?)'\s*\)?\s*$"
-                If regEx.Test(Trim(matches(0).SubMatches(1))) Then
+                If regEx.test(Trim(matches(0).SubMatches(1))) Then
                     Value = regEx.Execute(Trim(matches(0).SubMatches(1))).Item(0).SubMatches(0)
                 End If
             End If
@@ -367,7 +367,7 @@ Private Function ParsearMetadataCompleta(CodeText As String)
     ' Asignar propiedades de la clase
     Example = sExample
     Raises = sRaises
-    Dependencies = sDependencies
+    dependencies = sDependencies
 
     ParsearMetadataCompleta = Array(sDescription, sCategory, sArgumentDescriptions, sScope, sReturns)
 End Function
@@ -422,8 +422,8 @@ Private Function dumpProcedimiento()
     If Raises <> "" Then
         dumpProcedimiento = dumpProcedimiento & vbCrLf & vbTab & "Raises: " & Raises
     End If
-    If Dependencies <> "" Then
-        dumpProcedimiento = dumpProcedimiento & vbCrLf & vbTab & "Dependencies: " & Dependencies
+    If dependencies <> "" Then
+        dumpProcedimiento = dumpProcedimiento & vbCrLf & vbTab & "Dependencies: " & dependencies
     End If
 End Function
 

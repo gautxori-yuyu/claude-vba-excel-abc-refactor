@@ -7,16 +7,31 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
-'@Description: Estado lógico del Ribbon
+'@Description: Estado lÃ³gico del Ribbon (NO es un servicio - es estado puro)
 '@Category: State
-
-'@Folder "2-Servicios.Excel.Ribbon"
+'@Folder "2.Infrastructure.State"
 Option Explicit
+
+'=============================================================================
+' clsRibbonState - Estado del Ribbon (gestionado por ApplicationContext)
+'=============================================================================
+' Responsabilidades:
+'   1. Mantener el modo actual del Ribbon (Admin, User, Hidden, etc.)
+'   2. Notificar cambios de estado via eventos
+'   3. Determinar visibilidad de tabs/grupos segÃºn el modo
+'=============================================================================
+' NOTA: Esta clase NO es un servicio. Es un objeto de estado puro
+'       gestionado por clsApplicationContext.
+'=============================================================================
 
 Public Event StateChanged()
 
 Private mModoRibbon As eRibbonMode
 Private mVisible As Boolean
+
+'=============================================================================
+' PROPIEDADES - Modo del Ribbon
+'=============================================================================
 
 Public Property Get Modo() As eRibbonMode
     Modo = mModoRibbon
@@ -24,7 +39,6 @@ End Property
 
 Public Property Let Modo(Value As eRibbonMode)
     If mModoRibbon = Ribbon_Undefined Then
-        ' se considera una INICIALIZACION, no un cambio de estado
         mModoRibbon = Value
     ElseIf mModoRibbon <> Value Then
         mModoRibbon = Value
@@ -63,6 +77,10 @@ Public Function RibbonStateDescription() As String
     End Select
 End Function
 
+'=============================================================================
+' PROPIEDADES - Visibilidad
+'=============================================================================
+
 Public Property Get Visible() As Boolean
     Visible = mVisible
 End Property
@@ -74,21 +92,18 @@ Public Property Let Visible(Value As Boolean)
     End If
 End Property
 
-'@Description: Indica si la pestaña principal del Ribbon debe ser visible
-'@Scope: público (consultado por callbacks)
-'@Returns: Boolean
-'@Category: UI / Estado
+'=============================================================================
+' MÃ‰TODOS - DeterminaciÃ³n de visibilidad
+'=============================================================================
+
 Public Function IsRibbonTabVisible() As Boolean
     Select Case mModoRibbon
     Case Ribbon_Admin
         IsRibbonTabVisible = True
-
     Case Ribbon_User
         IsRibbonTabVisible = True
-
     Case Ribbon_OpportunityOnly
         IsRibbonTabVisible = EsFicheroOportunidad()
-
     Case Else
         IsRibbonTabVisible = False
     End Select
@@ -97,4 +112,13 @@ End Function
 Public Function IsAdminGroupVisible() As Boolean
     IsAdminGroupVisible = (mModoRibbon = Ribbon_Admin)
 End Function
+
+'=============================================================================
+' MÃ‰TODOS - Reset
+'=============================================================================
+
+Public Sub Reset()
+    mModoRibbon = Ribbon_Undefined
+    mVisible = False
+End Sub
 
