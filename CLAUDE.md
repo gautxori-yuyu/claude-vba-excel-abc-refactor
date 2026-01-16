@@ -22,7 +22,7 @@
 
 #### clsAplicacion
 
-**Ubicacion:** `clsAplicacion.cls` (lineas 1-608)
+**Ubicacion:** `clsAplicacion.cls` (lineas 1-479)
 
 **Proposito:**
 Coordinador principal de la aplicacion. Crea todos los servicios, suscribe eventos, y expone facade de acceso.
@@ -114,7 +114,7 @@ graph LR
     clsAplicacion --> clsRibbonState
 ```
 
-**Lineas de codigo:** 608
+**Lineas de codigo:** 479
 **Complejidad estimada:** Alta (God Object - multiples responsabilidades)
 
 ---
@@ -187,7 +187,7 @@ graph LR
 
 #### clsExecutionContext
 
-**Ubicacion:** `clsExecutionContext.cls` (lineas 1-156)
+**Ubicacion:** `clsExecutionContext.cls` (lineas 1-289)
 
 **Proposito:**
 Wrapper de eventos de Application de Excel, re-emitiendo como eventos propios para desacoplar del COM.
@@ -240,14 +240,14 @@ graph LR
     clsExecutionContext --> Excel.Application
 ```
 
-**Lineas de codigo:** 156
-**Complejidad estimada:** Baja
+**Lineas de codigo:** 289
+**Complejidad estimada:** Media
 
 ---
 
 #### clsConfiguration
 
-**Ubicacion:** `clsConfiguration.cls` (lineas 1-245)
+**Ubicacion:** `clsConfiguration.cls` (lineas 1-254)
 
 **Proposito:**
 Gestiona configuracion persistente (rutas, parametros) almacenada en el registro de Windows.
@@ -286,14 +286,14 @@ Public Sub CargarDesdeRegistro()                             ' Linea 134
 Public Sub GuardarEnRegistro()                               ' Linea 178
 ```
 
-**Lineas de codigo:** 245
+**Lineas de codigo:** 254
 **Complejidad estimada:** Baja
 
 ---
 
 #### clsFileManager
 
-**Ubicacion:** `clsFileManager.cls` (lineas 1-312)
+**Ubicacion:** `clsFileManager.cls` (lineas 1-378)
 
 **Proposito:**
 Gestiona tracking de archivos Excel abiertos, sincronizacion con el archivo activo.
@@ -342,14 +342,14 @@ graph LR
     clsFileManager --> clsExcelFile
 ```
 
-**Lineas de codigo:** 312
+**Lineas de codigo:** 378
 **Complejidad estimada:** Media
 
 ---
 
 #### clsOpportunitiesMgr
 
-**Ubicacion:** `clsOpportunitiesMgr.cls` (lineas 1-267)
+**Ubicacion:** `clsOpportunitiesMgr.cls` (lineas 1-347)
 
 **Proposito:**
 Gestiona lista de oportunidades comerciales desde carpeta configurada.
@@ -383,14 +383,14 @@ Public Property Let CurrentIndex(value As Long)              ' Linea 119
 Public Function GetOpportunityByIndex(idx As Long) As clsOpportunity ' Linea 145
 ```
 
-**Lineas de codigo:** 267
+**Lineas de codigo:** 347
 **Complejidad estimada:** Media
 
 ---
 
 #### clsFSMonitoringCoord
 
-**Ubicacion:** `clsFSMonitoringCoord.cls` (lineas 1-389)
+**Ubicacion:** `clsFSMonitoringCoord.cls` (lineas 1-647)
 
 **Proposito:**
 Coordina monitorizacion de multiples carpetas del sistema de archivos.
@@ -436,7 +436,7 @@ Friend Sub IniciarMonitoreo(ByVal oDicFolders As Object)     ' Linea 67
 Public Sub DetenerMonitoreo()                                ' Linea 112
 ```
 
-**Lineas de codigo:** 389
+**Lineas de codigo:** 647
 **Complejidad estimada:** Alta
 
 ---
@@ -945,19 +945,19 @@ graph TD
     end
 
     subgraph "Nivel 1 - Coordinador"
-        APP[clsAplicacion<br/>608 lineas<br/>🔴 God Object<br/>20+ manejadores]
+        APP[clsAplicacion<br/>479 lineas<br/>🔴 God Object<br/>20+ manejadores]
     end
 
     subgraph "Nivel 2 - Servicios Core"
-        CFG[clsConfiguration<br/>245 lineas]
-        EXEC[clsExecutionContext<br/>156 lineas<br/>6 eventos]
+        CFG[clsConfiguration<br/>254 lineas]
+        EXEC[clsExecutionContext<br/>289 lineas<br/>6 eventos]
     end
 
     subgraph "Nivel 3 - Servicios de Dominio"
-        FILEMGR[clsFileManager<br/>312 lineas]
-        OPP[clsOpportunitiesMgr<br/>267 lineas<br/>2 eventos]
+        FILEMGR[clsFileManager<br/>378 lineas]
+        OPP[clsOpportunitiesMgr<br/>347 lineas<br/>2 eventos]
         CHART[clsChartEventsManager<br/>148 lineas<br/>3 eventos]
-        FS[clsFSMonitoringCoord<br/>389 lineas<br/>11 eventos]
+        FS[clsFSMonitoringCoord<br/>647 lineas<br/>11 eventos]
     end
 
     subgraph "Nivel 4 - UI / Ribbon"
@@ -1789,7 +1789,7 @@ End Function
 **Ubicacion:** clsAplicacion
 
 **Sintomas:**
-- 608 lineas de codigo
+- 479 lineas de codigo
 - 8 dependencias directas (clsConfiguration, clsExecutionContext, ...)
 - 20+ manejadores de eventos
 - Mezcla 3 responsabilidades:
@@ -2246,6 +2246,7 @@ mFileManager.Initialize  ' Necesita ExecutionContext
 
 | Fecha | Version | Cambios | Autor |
 |-------|---------|---------|-------|
+| 2026-01-16 | 1.1 | Correccion de numeros de linea verificados contra codigo fuente | Claude |
 | 2026-01-15 | 1.0 | Analisis arquitectonico completo (Secciones 1-6) | Claude |
 
 ---
