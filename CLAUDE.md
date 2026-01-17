@@ -1,68 +1,180 @@
 # ANALISIS ARQUITECTONICO - Rama Refactorizada
 
 > Documento generado siguiendo plantilla docs/PLANTILLA_ANALISIS.md
-> Rama analizada: claude/refactor-main-code-YeuB5
+> Rama analizada: `claude/refactor-main-code-YeuB5`
+> Fecha de generacion: 2026-01-17
 
 ---
 
-## DIFERENCIAS CON RAMA MAIN
+## ESTADO CRITICO DE LA RAMA
 
-Esta rama contiene **6 clases nuevas** que implementan patrones de diseño para mejorar la arquitectura:
+> **ADVERTENCIA: EL CODIGO DE ESTA RAMA NO COMPILA**
 
-| Clase Nueva | Lineas | Patron Implementado | Proposito |
-|-------------|--------|---------------------|-----------|
-| IService.cls | 70 | Interface | Interfaz base para ciclo de vida de servicios |
-| IFormatter.cls | 79 | Interface | Interfaz para formateadores estandarizados |
-| clsServiceManager.cls | 282 | DI Container | Gestor de servicios con resolucion por tipo |
-| clsEventCoordinator.cls | 339 | Mediator | Coordinador centralizado de eventos |
-| clsApplicationContext.cls | 183 | Context Object | Estado compartido de la aplicacion |
-| clsRibbonUI.cls | 274 | SRP Extraction | Gestion IRibbonUI (extraido de clsRibbonEvents) |
+### Estado Actual
 
-**Total lineas nuevas:** 1,227
+| Aspecto | Estado |
+|---------|--------|
+| **Compilacion** | **NO COMPILA** - Errores multiples |
+| **Ejecucion** | **IMPOSIBLE** - No se puede ejecutar |
+| **Refactorizacion** | **INCOMPLETA** - Parcialmente implementada |
+
+### Problemas Conocidos
+
+1. **Errores de compilacion:** Existen errores que impiden la compilacion del proyecto VBA.
+
+2. **Refactorizacion incompleta:** Aunque se han creado las 6 clases nuevas (IService, IFormatter, clsServiceManager, clsEventCoordinator, clsApplicationContext, clsRibbonUI), la integracion con el resto del codigo no esta terminada.
+
+3. **Dependencias rotas:** Algunos modulos y clases existentes pueden tener referencias a la estructura anterior (clsAplicacion como God Object) que ya no existe en la forma esperada.
+
+### Trabajo Pendiente para Estabilizar
+
+- [ ] Resolver errores de compilacion
+- [ ] Verificar que todos los servicios implementan IService correctamente
+- [ ] Verificar que clsEventCoordinator recibe todos los eventos necesarios
+- [ ] Verificar que modCALLBACKSRibbon accede correctamente a los servicios via la nueva arquitectura
+- [ ] Probar ciclo completo de inicializacion (ThisWorkbook.Open -> clsAplicacion.Initialize)
+- [ ] Probar funcionalidades principales (Ribbon, graficos, oportunidades)
 
 ---
 
 ## SECCION 1: INVENTARIO DE COMPONENTES
 
+> **Objetivo:** Documentar TODOS los componentes del proyecto
+
 ### Resumen Estadistico
 
-| Tipo | Rama Main | Rama Refactorizada | Diferencia |
-|------|-----------|-------------------|------------|
-| Clases (.cls) | 28 (~5,463 lineas) | 34 (6,711 lineas) | **+6 clases, +1,248 lineas** |
-| Modulos (.bas) | 34 (~10,743 lineas) | 34 (10,743 lineas) | Sin cambios |
-| Formularios (.frm) | 3 (~813 lineas) | 3 (813 lineas) | Sin cambios |
-| **TOTAL** | **65** (~17,019 lineas) | **71** (18,267 lineas) | **+6 archivos, +1,248 lineas** |
+| Tipo | Cantidad | Lineas Totales |
+|------|----------|----------------|
+| Clases (.cls) | 34 | ~6,700 |
+| Modulos (.bas) | 34 | ~10,700 |
+| Formularios (.frm) | 3 | ~810 |
+| **TOTAL** | **71** | **~18,200** |
+
+**Clases NUEVAS en esta rama (no existen en main):**
+- IService.cls (70 lineas) - Interface para ciclo de vida de servicios
+- IFormatter.cls (79 lineas) - Interface para formateadores
+- clsServiceManager.cls (282 lineas) - Contenedor DI
+- clsEventCoordinator.cls (339 lineas) - Mediator de eventos
+- clsApplicationContext.cls (183 lineas) - Contexto de estado
+- clsRibbonUI.cls (274 lineas) - Gestion IRibbonUI (extraido de clsRibbonEvents)
 
 ---
 
-### 1.1. Clases NUEVAS (Solo en rama refactorizada)
+### 1.1. Clases (.cls)
+
+---
+
+#### clsAplicacion
+
+**Ubicacion:** `clsAplicacion.cls` (lineas 1-278)
+
+**Proposito:**
+Composition Root de la aplicacion. Crea infraestructura, registra servicios, y expone facade de acceso.
+
+**Responsabilidades:**
+- Crear ApplicationContext (estado compartido)
+- Crear ServiceManager e inyectarle ApplicationContext
+- Registrar servicios que implementan IService
+- Crear EventCoordinator (Mediator)
+- Exponer acceso tipado a servicios y contexto
+- Gestionar ciclo de vida (Initialize/Terminate)
+
+**Atributos privados:**
+```vba
+Private mServiceManager As clsServiceManager
+Private mEventCoordinator As clsEventCoordinator
+Private mAppContext As clsApplicationContext
+Private mRibbonState As clsRibbonState
+Private mChartState As clsChartState
+Private mIsInitialized As Boolean
+```
+
+**WithEvents declarados:**
+Ninguno (delegados a clsEventCoordinator)
+
+**Eventos que escucha:**
+Ninguno (delegados a clsEventCoordinator)
+
+**Eventos que dispara:**
+Ninguno (es consumidor final)
+
+**Metodos publicos:**
+```vba
+Public Sub Initialize()                                    ' Linea 60
+Public Sub Terminate()                                     ' Linea 239
+Public Property Get Services() As clsServiceManager        ' Linea 169
+Public Property Get Context() As clsApplicationContext     ' Linea 174
+Public Property Get Events() As clsEventCoordinator        ' Linea 179
+Public Property Get IsInitialized() As Boolean             ' Linea 184
+Public Property Get Configuration() As clsConfiguration   ' Linea 195
+Public Property Get ExecutionContext() As clsExecutionContext ' Linea 199
+Public Property Get FileManager() As clsFileManager       ' Linea 203
+Public Property Get OpportunitiesMgr() As clsOpportunitiesMgr ' Linea 207
+Public Property Get ChartEventsManager() As clsChartEventsManager ' Linea 211
+Public Property Get FSMonitoringCoord() As clsFSMonitoringCoord ' Linea 215
+Public Property Get RibbonUI() As clsRibbonUI             ' Linea 219
+Public Property Get RibbonState() As clsRibbonState       ' Linea 227
+Public Property Get ChartState() As clsChartState         ' Linea 231
+```
+
+**Dependencias:**
+```mermaid
+graph LR
+    clsAplicacion --> clsServiceManager
+    clsAplicacion --> clsEventCoordinator
+    clsAplicacion --> clsApplicationContext
+    clsAplicacion --> clsRibbonState
+    clsAplicacion --> clsChartState
+```
+
+**Lineas de codigo:** 278
+
+**Complejidad estimada:** Media (Composition Root bien estructurado)
+
+**Diferencia con rama main:** En main, clsAplicacion era un God Object con 479 lineas, 8 dependencias directas, 6 WithEvents, y 20+ manejadores de eventos. En esta rama refactorizada tiene 278 lineas, delega eventos a EventCoordinator, y delega creacion de servicios a ServiceManager.
+
+---
 
 #### IService (NUEVO)
 
 **Ubicacion:** `IService.cls` (lineas 1-70)
 
 **Proposito:**
-Interfaz base que estandariza el ciclo de vida de todos los servicios del sistema.
+Interfaz que estandariza el ciclo de vida de todos los servicios del sistema.
 
 **Responsabilidades:**
 - Definir contrato de inicializacion (Initialize)
 - Definir contrato de liberacion de recursos (Dispose)
-- Proporcionar introspección (IsInitialized, ServiceName)
+- Proporcionar introspeccion (IsInitialized, ServiceName)
 
-**Metodos de interfaz:**
+**Atributos privados:**
+Ninguno (es interfaz)
+
+**WithEvents declarados:**
+Ninguno
+
+**Eventos que escucha:**
+Ninguno
+
+**Eventos que dispara:**
+Ninguno
+
+**Metodos publicos (interfaz):**
 ```vba
-Public Sub Initialize(ByVal dependencies As Object)           ' Linea 51
-Public Sub Dispose()                                          ' Linea 56
-Public Property Get IsInitialized() As Boolean                ' Linea 61
-Public Property Get ServiceName() As String                   ' Linea 66
+Public Sub Initialize(ByVal dependencies As Object)        ' Linea 51
+Public Sub Dispose()                                       ' Linea 56
+Public Property Get IsInitialized() As Boolean             ' Linea 61
+Public Property Get ServiceName() As String                ' Linea 66
 ```
 
-**Patron formal:** Interface Pattern (Gang of Four)
-
-**Diferencia con rama main:** 🆕 **NO EXISTE EN MAIN** - Servicios en main no tienen interfaz comun
+**Dependencias:**
+Ninguna (es interfaz base)
 
 **Lineas de codigo:** 70
+
 **Complejidad estimada:** Baja
+
+**Diferencia con rama main:** NO EXISTE en main. Los servicios en main no tienen interfaz comun ni ciclo de vida estandarizado.
 
 ---
 
@@ -71,26 +183,40 @@ Public Property Get ServiceName() As String                   ' Linea 66
 **Ubicacion:** `IFormatter.cls` (lineas 1-79)
 
 **Proposito:**
-Interfaz que estandariza todos los formateadores (CGASING, Oferta, Reporte, etc.).
+Interfaz que estandariza todos los formateadores del sistema.
 
 **Responsabilidades:**
 - Definir contrato de formateo (Format)
 - Definir validacion de target (CanFormat)
 - Proporcionar nombre descriptivo (FormatterName)
 
-**Metodos de interfaz:**
+**Atributos privados:**
+Ninguno (es interfaz)
+
+**WithEvents declarados:**
+Ninguno
+
+**Eventos que escucha:**
+Ninguno
+
+**Eventos que dispara:**
+Ninguno
+
+**Metodos publicos (interfaz):**
 ```vba
-Public Function Format(ByVal target As Object) As Boolean     ' Linea 63
-Public Function CanFormat(ByVal target As Object) As Boolean  ' Linea 70
-Public Property Get FormatterName() As String                 ' Linea 75
+Public Function Format(ByVal target As Object) As Boolean  ' Linea 63
+Public Function CanFormat(ByVal target As Object) As Boolean ' Linea 70
+Public Property Get FormatterName() As String              ' Linea 75
 ```
 
-**Patron formal:** Strategy Pattern (Interface-based)
-
-**Diferencia con rama main:** 🆕 **NO EXISTE EN MAIN** - Formateo disperso en modulos sin interfaz comun
+**Dependencias:**
+Ninguna (es interfaz base)
 
 **Lineas de codigo:** 79
+
 **Complejidad estimada:** Baja
+
+**Diferencia con rama main:** NO EXISTE en main. El formateo en main esta disperso en modulos sin interfaz comun.
 
 ---
 
@@ -99,13 +225,13 @@ Public Property Get FormatterName() As String                 ' Linea 75
 **Ubicacion:** `clsServiceManager.cls` (lineas 1-282)
 
 **Proposito:**
-Gestor de servicios con resolucion por tipo. Implementa patron Dependency Injection Container.
+Contenedor de Inyeccion de Dependencias con resolucion por tipo y propiedades tipadas.
 
 **Responsabilidades:**
 - Registrar servicios Singleton (usando TypeName como clave)
-- Resolver servicios mediante propiedades tipadas
+- Resolver servicios mediante propiedades tipadas (sin strings)
 - Gestionar ciclo de vida (Initialize/Dispose via IService)
-- Inyectar dependencias (ApplicationContext + ServiceManager)
+- Inyectar dependencias (ServiceManager se pasa como dependencies)
 
 **Atributos privados:**
 ```vba
@@ -113,6 +239,15 @@ Private mServices As Object                         ' Dictionary: TypeName -> IS
 Private mAppContext As clsApplicationContext        ' Contexto compartido (inyectado)
 Private mIsInitialized As Boolean
 ```
+
+**WithEvents declarados:**
+Ninguno
+
+**Eventos que escucha:**
+Ninguno
+
+**Eventos que dispara:**
+Ninguno
 
 **Metodos publicos:**
 ```vba
@@ -130,7 +265,6 @@ Public Function GetServiceCount() As Long                        ' Linea 207
 Public Function IsRegistered(ByVal typeName As String) As Boolean ' Linea 212
 Public Property Get AppContext() As clsApplicationContext        ' Linea 217
 Public Sub DisposeAll()                                          ' Linea 226
-Public Function GetService(ByVal serviceName As String) As Object ' Linea 255 (DEPRECATED)
 ```
 
 **Dependencias:**
@@ -147,12 +281,11 @@ graph LR
     clsServiceManager --> clsRibbonUI
 ```
 
-**Patron formal:** Dependency Injection Container / Service Locator
-
-**Diferencia con rama main:** 🆕 **NO EXISTE EN MAIN** - En main, clsAplicacion crea y expone servicios directamente (God Object)
-
 **Lineas de codigo:** 282
+
 **Complejidad estimada:** Media
+
+**Diferencia con rama main:** NO EXISTE en main. En main, clsAplicacion crea y expone servicios directamente (patron God Object).
 
 ---
 
@@ -167,12 +300,13 @@ Mediator centralizado que coordina eventos entre servicios, eliminando acoplamie
 - Suscribirse a eventos de servicios (WithEvents)
 - Coordinar reacciones entre servicios
 - Actualizar ApplicationContext cuando proceda
-- Ser el punto unico de coordinacion (Mediator Pattern)
+- Exponer RibbonEvents para acceso desde callbacks
 
 **Atributos privados:**
 ```vba
 Private mServiceManager As clsServiceManager
 Private mAppContext As clsApplicationContext
+Private mRibbonEvents As clsRibbonEvents
 ```
 
 **WithEvents declarados:**
@@ -182,7 +316,7 @@ Private WithEvents mOpportunities As clsOpportunitiesMgr
 Private WithEvents mChartManager As clsChartEventsManager
 Private WithEvents mFSMonitoringCoord As clsFSMonitoringCoord
 Private WithEvents mRibbonState As clsRibbonState
-Private WithEvents mRibbonEvents As clsRibbonEvents
+Private WithEvents mRibbonEvt As clsRibbonEvents
 ```
 
 **Eventos que escucha:**
@@ -206,12 +340,15 @@ Private WithEvents mRibbonEvents As clsRibbonEvents
 | clsFSMonitoringCoord | MonitoringReconnected | mFSMonitoringCoord_MonitoringReconnected | 218 |
 | clsFSMonitoringCoord | MonitoringFailed | mFSMonitoringCoord_MonitoringFailed | 222 |
 | clsRibbonState | StateChanged | mRibbonState_StateChanged | 230 |
-| clsRibbonEvents | GenerarGraficosDesdeCurvasRto | mRibbonEvents_GenerarGraficosDesdeCurvasRto | 241 |
-| clsRibbonEvents | InvertirEjes | mRibbonEvents_InvertirEjes | 254 |
-| clsRibbonEvents | FormatearCGASING | mRibbonEvents_FormatearCGASING | 266 |
-| clsRibbonEvents | MostrarConfigurador | mRibbonEvents_MostrarConfigurador | 278 |
-| clsRibbonEvents | NuevaOportunidad | mRibbonEvents_NuevaOportunidad | 290 |
-| clsRibbonEvents | ToggleRibbonMode | mRibbonEvents_ToggleRibbonMode | 302 |
+| clsRibbonEvents | GenerarGraficosDesdeCurvasRto | mRibbonEvt_GenerarGraficosDesdeCurvasRto | 241 |
+| clsRibbonEvents | InvertirEjes | mRibbonEvt_InvertirEjes | 254 |
+| clsRibbonEvents | FormatearCGASING | mRibbonEvt_FormatearCGASING | 266 |
+| clsRibbonEvents | MostrarConfigurador | mRibbonEvt_MostrarConfigurador | 278 |
+| clsRibbonEvents | NuevaOportunidad | mRibbonEvt_NuevaOportunidad | 290 |
+| clsRibbonEvents | ToggleRibbonMode | mRibbonEvt_ToggleRibbonMode | 302 |
+
+**Eventos que dispara:**
+Ninguno (es consumidor final / Mediator)
 
 **Metodos publicos:**
 ```vba
@@ -226,20 +363,19 @@ Public Sub Dispose()                                              ' Linea 322
 graph LR
     clsEventCoordinator --> clsServiceManager
     clsEventCoordinator --> clsApplicationContext
+    clsEventCoordinator --> clsRibbonEvents
     clsEventCoordinator -.WithEvents.-> clsExecutionContext
     clsEventCoordinator -.WithEvents.-> clsOpportunitiesMgr
     clsEventCoordinator -.WithEvents.-> clsChartEventsManager
     clsEventCoordinator -.WithEvents.-> clsFSMonitoringCoord
     clsEventCoordinator -.WithEvents.-> clsRibbonState
-    clsEventCoordinator -.WithEvents.-> clsRibbonEvents
 ```
 
-**Patron formal:** Mediator Pattern (Gang of Four)
-
-**Diferencia con rama main:** 🆕 **NO EXISTE EN MAIN** - En main, clsAplicacion maneja los 20+ eventos directamente (God Object anti-pattern)
-
 **Lineas de codigo:** 339
-**Complejidad estimada:** Alta (pero SRP - solo coordinacion)
+
+**Complejidad estimada:** Alta (pero cumple SRP - solo coordinacion)
+
+**Diferencia con rama main:** NO EXISTE en main. En main, clsAplicacion maneja los 20+ eventos directamente (God Object anti-pattern).
 
 ---
 
@@ -260,10 +396,19 @@ Objeto de estado compartido que agrega sub-estados especializados de la aplicaci
 Private mRibbonState As clsRibbonState
 Private mExecutionContext As clsExecutionContext
 Private mChartState As clsChartState
-Private m_CurrentOpportunity As Object     ' clsOpportunity
-Private m_CurrentFile As Object            ' clsExcelFile
-Private m_ApplicationState As Long         ' Enum: Running, Initializing, ShuttingDown
+Private m_CurrentOpportunity As Object
+Private m_CurrentFile As Object
+Private m_ApplicationState As Long
 ```
+
+**WithEvents declarados:**
+Ninguno
+
+**Eventos que escucha:**
+Ninguno
+
+**Eventos que dispara:**
+Ninguno
 
 **Metodos publicos:**
 ```vba
@@ -300,12 +445,11 @@ graph LR
     clsApplicationContext --> clsChartState
 ```
 
-**Patron formal:** Context Object Pattern
-
-**Diferencia con rama main:** 🆕 **NO EXISTE EN MAIN** - En main, estado disperso en variables de clsAplicacion
-
 **Lineas de codigo:** 183
+
 **Complejidad estimada:** Baja
+
+**Diferencia con rama main:** NO EXISTE en main. En main, el estado estaba disperso en variables de clsAplicacion.
 
 ---
 
@@ -327,10 +471,19 @@ Servicio dedicado a la gestion del puntero IRibbonUI, extraido de clsRibbonEvent
 **Atributos privados:**
 ```vba
 Private mRibbonUI As IRibbonUI
-Private mIsRecovering As Boolean              ' Flag para evitar recursion
-Private mWasEverInitialized As Boolean        ' Flag para distinguir "nunca inicializado" de "perdido"
+Private mIsRecovering As Boolean
+Private mWasEverInitialized As Boolean
 Private mIsInitialized As Boolean
 ```
+
+**WithEvents declarados:**
+Ninguno
+
+**Eventos que escucha:**
+Ninguno
+
+**Eventos que dispara:**
+Ninguno
 
 **Metodos publicos:**
 ```vba
@@ -360,199 +513,439 @@ Public Function GetQuickDiagnostics() As String                  ' Linea 238
 graph LR
     clsRibbonUI -.Implements.-> IService
     clsRibbonUI --> IRibbonUI
-    clsRibbonUI --> modMACROAppLifecycle
 ```
 
-**Patron formal:** Single Responsibility Principle (Extraction)
-
-**Diferencia con rama main:** 🆕 **NO EXISTE EN MAIN** - En main, esta funcionalidad esta mezclada en clsRibbonEvents (violacion SRP)
-
 **Lineas de codigo:** 274
+
 **Complejidad estimada:** Media
+
+**Diferencia con rama main:** NO EXISTE en main. En main, la gestion de IRibbonUI estaba mezclada en clsRibbonEvents (violacion SRP).
 
 ---
 
-### 1.2. Clases EXISTENTES (Presentes en ambas ramas)
+#### clsExecutionContext
 
-> Las siguientes clases existen en ambas ramas. Se documenta solo cambios significativos.
+**Ubicacion:** `clsExecutionContext.cls` (lineas 1-327)
 
-#### clsAplicacion
+**Proposito:**
+Wrapper de eventos de Application que proporciona acceso seguro al contexto de ejecucion.
 
-**Ubicacion:** `clsAplicacion.cls` (lineas 1-479)
+**Responsabilidades:**
+- Suscribirse a eventos de Excel.Application
+- Re-emitir eventos como eventos propios
+- Proporcionar acceso seguro a ActiveWorkbook, ActiveSheet, ActiveChart
+- Detectar chart activo desde multiples fuentes
 
-**Diferencias con rama main:**
+**Implements:** IService
 
-| Aspecto | Rama Main | Rama Refactorizada |
-|---------|-----------|-------------------|
-| **Lineas** | 479 | 479 (sin cambios) |
-| **Responsabilidades** | 3 (God Object) | 3 (pendiente refactorizar) |
-| **Manejadores eventos** | 20+ directos | 20+ (delegacion pendiente a clsEventCoordinator) |
+**Atributos privados:**
+```vba
+Private mIsInitialized As Boolean
+Private m_xlApp As Application                    ' WithEvents
+Private m_lastWorkbookObjKey As Double
+Private m_lastWorksheetObjKey As Double
+Private m_lastChartObjKey As Double
+Private m_lastSelectionObjKey As Double
+Private m_cachedChartInfo As T_CachedChartInfo
+```
 
-**Estado de migracion:** ⚠️ Pendiente - clsEventCoordinator creado pero clsAplicacion aun no delegado
+**WithEvents declarados:**
+```vba
+Private WithEvents m_xlApp As Application
+```
 
-**Lineas de codigo:** 479
-**Complejidad estimada:** Alta (God Object - multiples responsabilidades)
+**Eventos que escucha:**
+
+| Emisor | Evento | Manejador | Linea |
+|--------|--------|-----------|-------|
+| Application | WorkbookOpen | m_xlApp_WorkbookOpen | 104 |
+| Application | WorkbookActivate | m_xlApp_WorkbookActivate | 109 |
+| Application | WorkbookBeforeClose | m_xlApp_WorkbookBeforeClose | 115 |
+| Application | SheetActivate | m_xlApp_SheetActivate | 120 |
+| Application | SheetDeactivate | m_xlApp_SheetDeactivate | 129 |
+
+**Eventos que dispara:**
+```vba
+Public Event WorkbookOpened(ByVal wb As Workbook)              ' Linea 27
+Public Event WorkbookActivated(ByVal wb As Workbook)           ' Linea 28
+Public Event WorkbookBeforeClose(ByVal wb As Workbook, ByRef Cancel As Boolean) ' Linea 29
+Public Event WorksheetActivated(ByVal ws As Worksheet)         ' Linea 30
+Public Event WorksheetDeactivated(ByVal ws As Worksheet)       ' Linea 31
+Public Event SheetActivated(ByVal sh As Object)                ' Linea 32
+Public Event SheetDeactivated(ByVal sh As Object)              ' Linea 33
+Public Event SelectionChanged(ByVal sel As Object)             ' Linea 34
+```
+
+**Metodos publicos:**
+```vba
+' IService
+Private Sub IService_Initialize(ByVal dependencies As Object)    ' Linea 66
+Private Sub IService_Dispose()                                    ' Linea 75
+Private Property Get IService_IsInitialized() As Boolean          ' Linea 83
+Private Property Get IService_ServiceName() As String             ' Linea 87
+
+' API Publica
+Public Sub Initialize()                                           ' Linea 94
+Public Property Get Workbook() As Workbook                        ' Linea 140
+Public Property Get Worksheet() As Worksheet                      ' Linea 156
+Public Property Get Selection() As Object                         ' Linea 172
+Public Property Get Application() As Application                  ' Linea 181
+Public Property Get Chart() As Chart                              ' Linea 188
+Public Property Get HasWorkbook() As Boolean                      ' Linea 263
+Public Property Get HasWorksheet() As Boolean                     ' Linea 267
+Public Property Get HasSelection() As Boolean                     ' Linea 271
+Public Property Get HasChart() As Boolean                         ' Linea 275
+Public Function GetSelectedRange() As Range                       ' Linea 279
+Public Function Diagnostics() As String                           ' Linea 292
+```
+
+**Dependencias:**
+```mermaid
+graph LR
+    clsExecutionContext -.Implements.-> IService
+    clsExecutionContext -.WithEvents.-> Application
+```
+
+**Lineas de codigo:** 327
+
+**Complejidad estimada:** Media
+
+**Diferencia con rama main:** Ahora implementa IService para ciclo de vida estandarizado.
+
+---
+
+#### clsConfiguration
+
+**Ubicacion:** `clsConfiguration.cls` (lineas 1-379)
+
+**Proposito:**
+Servicio de configuracion que carga/guarda rutas y parametros desde el registro de Windows.
+
+**Responsabilidades:**
+- Cargar configuracion desde registro de Windows
+- Guardar cambios en registro
+- Validar rutas configuradas
+- Proporcionar diccionario de carpetas a monitorear
+
+**Implements:** IService
+
+**Atributos privados:**
+```vba
+Private mIsInitialized As Boolean
+Private mRutaOportunidades As String
+Private mRutaPlantillas As String
+Private mRutaOfergas As String
+Private mRutaGasVBNet As String
+Private mRutaExcelCalcTempl As String
+Private mArrComprImgs As Variant
+Private mArrComprDrawPIDs As Variant
+Private mSAM As Integer
+```
+
+**WithEvents declarados:**
+Ninguno
+
+**Eventos que escucha:**
+Ninguno
+
+**Eventos que dispara:**
+Ninguno
+
+**Metodos publicos:**
+```vba
+' IService
+Private Sub IService_Initialize(ByVal dependencies As Object)    ' Linea 122
+Private Sub IService_Dispose()                                    ' Linea 135
+Private Property Get IService_IsInitialized() As Boolean          ' Linea 140
+Private Property Get IService_ServiceName() As String             ' Linea 144
+
+' Propiedades de rutas
+Public Property Get RutaOportunidades() As String                 ' Linea 33
+Public Property Let RutaOportunidades(newRuta As String)          ' Linea 37
+Public Property Get RutaPlantillas() As String                    ' Linea 42
+Public Property Let RutaPlantillas(newRuta As String)             ' Linea 46
+Public Property Get RutaOfergas() As String                       ' Linea 51
+Public Property Let RutaOfergas(newRuta As String)                ' Linea 55
+Public Property Get RutaGasVBNet() As String                      ' Linea 60
+Public Property Let RutaGasVBNet(newRuta As String)               ' Linea 64
+Public Property Get RutaExcelCalcTempl() As String                ' Linea 69
+Public Property Let RutaExcelCalcTempl(newRuta As String)         ' Linea 73
+Public Property Get ListComprImgs() As Variant                    ' Linea 78
+Public Property Let ListComprImgs(arrRutas As Variant)            ' Linea 82
+Public Property Get ListComprDrawPIDs() As Variant                ' Linea 87
+Public Property Let ListComprDrawPIDs(arrRutas As Variant)        ' Linea 91
+Public Property Get SAM() As Integer                              ' Linea 96
+Public Property Let SAM(newSAM As Integer)                        ' Linea 100
+
+' Utilidades
+Public Property Get oDicFoldersToWatch() As Object                ' Linea 181
+Public Function GetConfigSummary() As String                      ' Linea 318
+Public Function ValidateAllPaths() As Boolean                     ' Linea 336
+```
+
+**Dependencias:**
+```mermaid
+graph LR
+    clsConfiguration -.Implements.-> IService
+    clsConfiguration --> WScript.Shell
+    clsConfiguration --> mod_ConstantsGlobals
+```
+
+**Lineas de codigo:** 379
+
+**Complejidad estimada:** Media
+
+**Diferencia con rama main:** Ahora implementa IService para ciclo de vida estandarizado.
+
+---
+
+#### clsFileManager
+
+**Ubicacion:** `clsFileManager.cls` (lineas 1-419)
+
+**Proposito:**
+Servicio de tracking de archivos Excel abiertos con sincronizacion automatica.
+
+**Responsabilidades:**
+- Supervisar archivos Excel abiertos
+- Mantener indice de archivos por ObjectKey
+- Sincronizar archivo activo con cambios de contexto
+- Analizar archivos para obtener metadatos
+
+**Implements:** IService
+
+**Atributos privados:**
+```vba
+Private mIsInitialized As Boolean
+Private p_trackedFiles As Object                 ' Dictionary
+Private p_currExcelFile As clsExcelFile
+Private WithEvents ctx As clsExecutionContext
+```
+
+**WithEvents declarados:**
+```vba
+Private WithEvents ctx As clsExecutionContext
+```
+
+**Eventos que escucha:**
+
+| Emisor | Evento | Manejador | Linea |
+|--------|--------|-----------|-------|
+| clsExecutionContext | WorkbookActivated | ctx_WorkbookActivated | 402 |
+| clsExecutionContext | WorkbookOpened | ctx_WorkbookOpened | 408 |
+| clsExecutionContext | WorkbookBeforeClose | ctx_WorkbookBeforeClose | 414 |
+
+**Eventos que dispara:**
+Ninguno
+
+**Metodos publicos:**
+```vba
+' IService
+Private Sub IService_Initialize(ByVal dependencies As Object)    ' Linea 47
+Private Sub IService_Dispose()                                    ' Linea 66
+Private Property Get IService_IsInitialized() As Boolean          ' Linea 77
+Private Property Get IService_ServiceName() As String             ' Linea 81
+
+' API Publica
+Public Property Get ActiveWb() As clsExcelFile                    ' Linea 107
+Friend Property Set ActiveWb(f As clsExcelFile)                   ' Linea 117
+Public Property Get TrackedCount() As Long                        ' Linea 144
+Public Function GetOrTrackWorkbook(wb As Workbook) As clsExcelFile ' Linea 154
+Public Sub UntrackWorkbook(wb As Workbook)                        ' Linea 192
+Public Sub TrackFile(f As Object)                                 ' Linea 210
+Public Sub UntrackFile(f As Object)                               ' Linea 233
+Public Function AnalizarArchivo(fich As Object) As T_InfoArchivo  ' Linea 266
+Public Function AnalizarArchivoActivo() As T_InfoArchivo          ' Linea 286
+Public Function IsTracked(wb As Workbook) As Boolean              ' Linea 312
+Public Function GetTrackedFilesInfo() As String                   ' Linea 376
+```
+
+**Dependencias:**
+```mermaid
+graph LR
+    clsFileManager -.Implements.-> IService
+    clsFileManager -.WithEvents.-> clsExecutionContext
+    clsFileManager --> clsExcelFile
+    clsFileManager --> IFile
+```
+
+**Lineas de codigo:** 419
+
+**Complejidad estimada:** Alta
+
+**Diferencia con rama main:** Ahora implementa IService y recibe ExecutionContext via inyeccion de dependencias.
+
+---
+
+#### clsOpportunitiesMgr
+
+**Ubicacion:** `clsOpportunitiesMgr.cls` (lineas 1-394)
+
+**Proposito:** Gestiona la lista de oportunidades (subcarpetas) del directorio base configurado.
+
+**Implements:** IService
+
+**Eventos que dispara:**
+- `currOpportunityChanged(Index, Path)` - Cambio de oportunidad actual
+- `OpportunityCollectionUpdate(cambios)` - Cambios en lista de oportunidades
+
+**Lineas de codigo:** 394
+
+**Diferencia con rama main:** Ahora implementa IService.
+
+---
+
+#### clsFSMonitoringCoord
+
+**Ubicacion:** `clsFSMonitoringCoord.cls` (lineas 1-693)
+
+**Proposito:** Coordinador de monitorizacion del sistema de archivos.
+
+**Implements:** IService
+
+**WithEvents:** clsFSWatcher
+
+**Eventos que dispara:**
+- `OpportunityCreated`, `OpportunityDeleted`, `OpportunityRenamed`
+- `MonitoringError`, `MonitoringReconnected`, `MonitoringFailed`
+
+**Lineas de codigo:** 693
+
+**Diferencia con rama main:** Ahora implementa IService.
 
 ---
 
 #### clsRibbonEvents
 
-**Ubicacion:** `clsRibbonEvents.cls` (lineas 1-277)
+**Ubicacion:** `clsRibbonEvents.cls` (lineas 1-121)
 
-**Diferencias con rama main:**
+**Proposito:** Declarar eventos publicos para acciones del Ribbon.
 
-| Aspecto | Rama Main | Rama Refactorizada |
-|---------|-----------|-------------------|
-| **Responsabilidades** | 2 (IRibbonUI + Eventos) | 1 (Solo Eventos) |
-| **Gestion IRibbonUI** | Incluida | Extraida a clsRibbonUI |
+**Eventos que dispara:**
+- `GenerarGraficosDesdeCurvasRto`, `InvertirEjes`, `FormatearCGASING`
+- `MostrarConfigurador`, `NuevaOportunidad`, `ToggleRibbonMode`
 
-**Estado de migracion:** ✅ Parcialmente migrado - clsRibbonUI extrae gestion IRibbonUI
+**Lineas de codigo:** 121
 
-**Lineas de codigo:** 277
-**Complejidad estimada:** Media (mejorada - ahora SRP)
+**Diferencia con rama main:** Simplificado - gestion IRibbonUI extraida a clsRibbonUI.
 
 ---
 
-### Clases sin cambios (Resumen)
+#### clsRibbonState
 
-Las siguientes clases permanecen **identicas** a la rama main:
+**Ubicacion:** `clsRibbonState.cls` (lineas 1-125)
+
+**Proposito:** Estado logico del Ribbon (modo actual, visibilidad).
+
+**Eventos que dispara:** `StateChanged`
+
+**Lineas de codigo:** 125
+
+---
+
+#### clsChartEventsManager
+
+**Ubicacion:** `clsChartEventsManager.cls` (lineas 1-182)
+
+**Proposito:** Gestor centralizado de eventos de graficos.
+
+**Implements:** IService
+
+**Eventos que dispara:**
+- `ChartActivated`, `ChartDeactivated`, `HojaConGraficosCambiada`
+
+**Lineas de codigo:** 182
+
+**Diferencia con rama main:** Ahora implementa IService.
+
+---
+
+#### clsExcelFile
+
+**Ubicacion:** `clsExcelFile.cls` (lineas 1-413)
+
+**Proposito:** Representa un Workbook abierto. Unica capa que conoce directamente al Workbook.
+
+**Implements:** IFile
+
+**Lineas de codigo:** 413
+
+---
+
+#### ThisWorkbook
+
+**Ubicacion:** `ThisWorkbook.cls` (lineas 1-182)
+
+**Proposito:** Entry point de la aplicacion.
+
+**Lineas de codigo:** 182
+
+---
+
+### 1.2. Clases Restantes (Sin Cambios Significativos)
 
 | Clase | Lineas | Proposito |
 |-------|--------|-----------|
-| clsExecutionContext | 289 | Wrapper eventos Excel.Application |
-| clsConfiguration | 254 | Configuracion persistente (registro Windows) |
-| clsFileManager | 378 | Tracking archivos Excel abiertos |
-| clsOpportunitiesMgr | 347 | Gestion lista de oportunidades |
-| clsFSMonitoringCoord | 647 | Coordinacion monitorizacion carpetas |
-| clsFSWatcher | 713 | Monitorizacion individual carpeta (COM) |
-| clsRibbonState | 100 | Estado logico del Ribbon |
-| clsChartState | 12 | Estado de graficos |
-| clsChartEvents | 97 | Wrapper eventos Chart individual |
-| clsChartEventsManager | 148 | Gestion eventos graficos en hoja |
-| clsExcelFile | 412 | Modelo archivo Excel abierto |
-| clsOpportunity | 41 | Modelo oportunidad comercial |
-| clsOferta | 51 | Modelo oferta individual |
-| clsOfertaOtro | 37 | Tipo especial de oferta |
-| clsOfertaRepository | 149 | Repository gestion ofertas |
-| clsVBAProcedure | 430 | Modelo introspeccion codigo VBA |
-| clsDBContext | 94 | Contexto base de datos |
-| clsPDFFile | 100 | Gestion archivos PDF |
-| clsEventDispatcher | 10 | Dispatcher simple eventos |
-| clsFileState | 12 | Estado de archivo |
-| clsOpportunityOfferBudgetTpl | 12 | Template presupuesto |
-| clsOpportunityOfferQuotationTpl | 12 | Template cotizacion |
-| ThisWorkbook | 172 | Entry point aplicacion |
-| CRefEdit | 79 | Control personalizado RefEdit |
-| IFile | 56 | Interfaz para archivos |
-| wshUnidades | 17 | Hoja especial unidades |
+| clsFSWatcher | ~713 | Monitorizacion carpeta (COM) |
+| clsChartEvents | ~97 | Wrapper eventos Chart |
+| clsChartState | ~12 | Estado graficos |
+| clsOpportunity | ~41 | Modelo oportunidad |
+| clsOferta | ~51 | Modelo oferta |
+| clsOfertaOtro | ~37 | Tipo especial oferta |
+| clsOfertaRepository | ~149 | Repository ofertas |
+| clsVBAProcedure | ~430 | Introspeccion VBA |
+| clsDBContext | ~94 | Contexto BD |
+| clsPDFFile | ~100 | Gestion PDF |
+| clsEventDispatcher | ~10 | Dispatcher eventos |
+| clsFileState | ~12 | Estado archivo |
+| CRefEdit | ~79 | Control RefEdit |
+| IFile | ~56 | Interfaz archivos |
+| wshUnidades | ~17 | Hoja unidades |
 
 ---
 
-### 1.3. Modulos (.bas)
+### 1.3. Modulos (.bas) - Sin Cambios
 
-> **Sin cambios respecto a rama main** - Los 34 modulos permanecen identicos.
-
-| Modulo | Lineas | Proposito |
-|--------|--------|-----------|
-| modCALLBACKSRibbon | 332 | Callbacks XML del Ribbon |
-| modMACROAppLifecycle | 423 | Funciones ciclo vida aplicacion |
-| modMACROGraficoSensibilidad | 777 | Generacion graficos sensibilidad |
-| modMACROFixCGAS | 388 | Formateo hojas CGASING |
-| UDFs_CGASING | 345 | UDFs para hojas CGASING |
-| UDFs_Units | 385 | Conversion unidades |
-| UDFs_COOLPROP | 146 | Propiedades termodinamicas |
-| UDFs_FileSystem | 150 | Sistema de archivos |
-| UDFs_Utilids | 50 | Utilidades diversas |
-| UDFs_UtilsExcel | 242 | Utilidades Excel |
-| UDFs_UtilsExcelChart | 105 | Utilidades graficos |
-| UDFs_Backups | 330 | Soporte backups |
-| mod_Logger | 223 | Sistema logging |
-| mod_ConstantsGlobals | 302 | Constantes globales |
-| modAPPFileNames | 303 | Gestion nombres archivo |
-| modAPPInstallXLAM | 713 | Instalacion/desinstalacion XLAM |
-| modAPPUDFsRegistration | 315 | Registro UDFs |
-| modAPPBudgetQuotesUtilids | 281 | Utilidades presupuestos |
-| modAPPFSWatcher | 21 | Wrapper FSWatcher |
-| modMACROBase64Encoding | 115 | Codificacion Base64 |
-| modMACROComparadorHojas | 273 | Comparacion hojas |
-| modMACROImportExportMacros | 286 | Import/export macros |
-| modMACROLeerOfertas | 188 | Lectura ofertas |
-| modMACROListarProyectosVBA | 105 | Listado proyectos |
-| modMACROProceduresToWorksheet | 656 | Export procedimientos a hoja |
-| modMACROUnits | 211 | Gestion unidades |
-| modMACROUtilsExcel | 344 | Utilidades Excel |
-| modMACROUtilsExcelCheckbox | 268 | Utilidades checkboxes |
-| modMACROWbkEditableCleaning | 290 | Limpieza libros |
-| modMACROWbkEditableFormatting | 1177 | Formateo libros |
-| modOfertaTypes | 13 | Tipos ofertas |
-| modUTILSProcedureParsing | 188 | Parsing procedimientos |
-| modUTILSRefEditAPI | 375 | API RefEdit |
-| modUTILSShellCmd | 407 | Comandos shell |
+34 modulos (~10,700 lineas). Sin cambios respecto a rama main.
 
 ---
 
-### 1.4. Formularios (.frm)
+### 1.4. Formularios (.frm) - Sin Cambios
 
-> **Sin cambios respecto a rama main** - Los 3 formularios permanecen identicos.
-
-| Formulario | Lineas | Proposito |
-|------------|--------|-----------|
-| frmConfiguracion | 378 | Configuracion rutas y parametros |
-| frmComparadorHojas | 321 | Comparacion visual hojas Excel |
-| frmImportExportMacros | 114 | Import/export modulos VBA |
+3 formularios (~810 lineas). Sin cambios respecto a rama main.
 
 ---
 
-### 1.5. Tabla de Eventos (Diferencias)
+### 1.5. Tabla Consolidada de Eventos
 
-#### Eventos NUEVOS (Solo en rama refactorizada)
+| Clase Emisora | Eventos | Suscriptor |
+|---------------|---------|------------|
+| clsExecutionContext | Workbook*, Sheet* | clsEventCoordinator |
+| clsChartEventsManager | Chart*, HojaConGraficos* | clsEventCoordinator |
+| clsOpportunitiesMgr | currOpportunityChanged, OpportunityCollectionUpdate | clsEventCoordinator |
+| clsFSMonitoringCoord | Opportunity*, Monitoring* | clsEventCoordinator |
+| clsRibbonState | StateChanged | clsEventCoordinator |
+| clsRibbonEvents | GenerarGraficos*, Invertir*, Formatear*, etc. | clsEventCoordinator |
 
-| Clase Emisora | Evento | Clase Receptora | Manejador |
-|---------------|--------|-----------------|-----------|
-| clsRibbonEvents | ToggleRibbonMode | clsEventCoordinator | mRibbonEvents_ToggleRibbonMode |
-| clsRibbonEvents | MostrarConfigurador | clsEventCoordinator | mRibbonEvents_MostrarConfigurador |
-
-#### Eventos REUBICADOS (de clsAplicacion a clsEventCoordinator)
-
-> En rama main, clsAplicacion escucha 24 eventos directamente.
-> En rama refactorizada, clsEventCoordinator asume esta responsabilidad.
-
-| Evento | Emisor | Main: Receptor | Refactorizado: Receptor |
-|--------|--------|----------------|------------------------|
-| WorkbookActivated | clsExecutionContext | clsAplicacion | clsEventCoordinator |
-| SheetActivated | clsExecutionContext | clsAplicacion | clsEventCoordinator |
-| ChartActivated | clsChartEventsManager | clsAplicacion | clsEventCoordinator |
-| OpportunityCreated | clsFSMonitoringCoord | clsAplicacion | clsEventCoordinator |
-| *... (20+ eventos mas)* | | | |
-
-**Impacto:** Reduce acoplamiento de clsAplicacion de 8 dependencias WithEvents a 0 (delegacion al Mediator)
+**Observacion:** clsEventCoordinator es el Mediator central (24 eventos).
 
 ---
 
-### 1.6. UDFs y Macros
+### 1.6. Servicios que Implementan IService
 
-> **Sin cambios respecto a rama main** - Mismas UDFs y macros disponibles.
+| Servicio | Dependencias |
+|----------|--------------|
+| clsConfiguration | Ninguna |
+| clsExecutionContext | Ninguna |
+| clsFileManager | ServiceManager |
+| clsOpportunitiesMgr | ServiceManager |
+| clsChartEventsManager | Ninguna |
+| clsFSMonitoringCoord | ServiceManager |
+| clsRibbonUI | Ninguna |
 
 ---
 
-## FIN SECCION 1 - ENTREGA 1
-
-### Resumen de Entrega 1
-
-**Componentes documentados:**
-- 6 clases NUEVAS con analisis detallado
-- 28 clases existentes (resumen de cambios)
-- 34 modulos (sin cambios)
-- 3 formularios (sin cambios)
-
-**Diferencias clave identificadas:**
-1. **+6 clases nuevas** implementando patrones DI, Mediator, Context Object
-2. **clsRibbonUI** extrae responsabilidad de gestion IRibbonUI (SRP)
-3. **clsEventCoordinator** centraliza 24 manejadores de eventos (Mediator)
-4. **clsServiceManager** implementa contenedor DI con propiedades tipadas
-5. **IService/IFormatter** estandarizan interfaces de servicios
-
-**Estado de migracion:** ⚠️ Parcial - Clases nuevas creadas pero clsAplicacion aun no delega completamente
+## FIN SECCION 1
 
 ---
 
@@ -560,577 +953,11 @@ Las siguientes clases permanecen **identicas** a la rama main:
 
 | Fecha | Version | Cambios | Autor |
 |-------|---------|---------|-------|
-| 2026-01-16 | 1.0 | Seccion 1 completa - Inventario rama refactorizada | Claude |
+| 2026-01-17 | 0.2 | Seccion 1 completa + Estado Critico documentado | Claude |
+| 2026-01-17 | 0.1 | Inicio Seccion 1 - primeras 10 clases documentadas | Claude |
 
 ---
 
----
-
-## SECCION 2: GRAFOS DE DEPENDENCIAS
-
-> Objetivo: Visualizar la nueva arquitectura y compararla con rama main
-
-### 2.1. DIAGRAMAS ESTRUCTURALES
-
-#### 2.1.1. Diagrama UML - Arquitectura Refactorizada
-
-```mermaid
-classDiagram
-    %% NUEVAS CLASES (en verde conceptualmente)
-    class IService {
-        <<interface>>
-        +Initialize(dependencies: Object)
-        +Dispose()
-        +IsInitialized: Boolean
-        +ServiceName: String
-    }
-
-    class IFormatter {
-        <<interface>>
-        +Format(target: Object): Boolean
-        +CanFormat(target: Object): Boolean
-        +FormatterName: String
-    }
-
-    class clsServiceManager {
-        -mServices: Dictionary
-        -mAppContext: clsApplicationContext
-        -mIsInitialized: Boolean
-        +Initialize(appContext)
-        +RegisterSingleton(instance: IService)
-        +InitializeAll()
-        +DisposeAll()
-        +Configuration: clsConfiguration
-        +ExecutionContext: clsExecutionContext
-        +FileManager: clsFileManager
-        +OpportunitiesMgr: clsOpportunitiesMgr
-        +ChartEventsManager: clsChartEventsManager
-        +FSMonitoringCoord: clsFSMonitoringCoord
-        +RibbonUI: clsRibbonUI
-        +AppContext: clsApplicationContext
-    }
-
-    class clsEventCoordinator {
-        -mServiceManager: clsServiceManager
-        -mAppContext: clsApplicationContext
-        +Initialize(serviceManager, appContext)
-        +RibbonEvents: clsRibbonEvents
-        +Dispose()
-    }
-
-    class clsApplicationContext {
-        -mRibbonState: clsRibbonState
-        -mExecutionContext: clsExecutionContext
-        -mChartState: clsChartState
-        -m_CurrentOpportunity: Object
-        -m_CurrentFile: Object
-        +Initialize(RibbonState, execContext, ChartState)
-        +RibbonState: clsRibbonState
-        +ExecutionContext: clsExecutionContext
-        +ChartState: clsChartState
-        +IsChartActive: Boolean
-        +CanInvertAxes: Boolean
-        +Reset()
-        +GetDebugInfo(): String
-    }
-
-    class clsRibbonUI {
-        -mRibbonUI: IRibbonUI
-        -mIsRecovering: Boolean
-        -mWasEverInitialized: Boolean
-        +Init(ribbonObj: IRibbonUI)
-        +InvalidarRibbon()
-        +InvalidarControl(idControl: String)
-        +IsAvailable: Boolean
-        +GetQuickDiagnostics(): String
-    }
-
-    %% CLASES EXISTENTES (simplificadas)
-    class clsAplicacion {
-        +Configuration: clsConfiguration
-        +FileManager: clsFileManager
-        +OpportunitiesMgr: clsOpportunitiesMgr
-        +ToggleRibbonMode()
-    }
-
-    class clsConfiguration {
-        +RutaOportunidades: String
-        +RutaPlantillas: String
-        +CargarDesdeRegistro()
-        +GuardarEnRegistro()
-    }
-
-    class clsExecutionContext {
-        +WorkbookActivated: Event
-        +SheetActivated: Event
-        +Initialize()
-        +Terminate()
-    }
-
-    class clsRibbonEvents {
-        +GenerarGraficosDesdeCurvasRto: Event
-        +InvertirEjes: Event
-        +FormatearCGASING: Event
-    }
-
-    class clsRibbonState {
-        +StateChanged: Event
-        +ToggleModo()
-        +TabVisible: Boolean
-    }
-
-    class clsChartState {
-        +IsActive: Boolean
-        +CanInvertAxes: Boolean
-        +CurrentChart: Chart
-    }
-
-    %% RELACIONES - Interfaces
-    clsRibbonUI ..|> IService : implements
-
-    %% RELACIONES - ServiceManager como hub central
-    clsServiceManager --> clsApplicationContext : holds
-    clsServiceManager --> clsConfiguration : resolves
-    clsServiceManager --> clsExecutionContext : resolves
-    clsServiceManager --> clsRibbonUI : resolves
-
-    %% RELACIONES - EventCoordinator como Mediator
-    clsEventCoordinator --> clsServiceManager : uses
-    clsEventCoordinator --> clsApplicationContext : updates
-    clsEventCoordinator ..> clsExecutionContext : WithEvents
-    clsEventCoordinator ..> clsRibbonEvents : WithEvents
-    clsEventCoordinator ..> clsRibbonState : WithEvents
-
-    %% RELACIONES - ApplicationContext agrega estado
-    clsApplicationContext --> clsRibbonState : aggregates
-    clsApplicationContext --> clsExecutionContext : aggregates
-    clsApplicationContext --> clsChartState : aggregates
-
-    %% RELACIONES - Clases existentes (simplificadas)
-    clsAplicacion --> clsServiceManager : delegates to
-```
-
-**Leyenda:**
-- `--|>` : Implementa interface
-- `-->` : Dependencia directa (usa, crea)
-- `..>` : Dependencia de eventos (WithEvents)
-- Clases NUEVAS: IService, IFormatter, clsServiceManager, clsEventCoordinator, clsApplicationContext, clsRibbonUI
+> **Esperando aprobacion para continuar con Seccion 2: Grafos de Dependencias**
 
 ---
-
-#### 2.1.2. Comparacion de Arquitecturas: Main vs Refactorizada
-
-##### Arquitectura MAIN (God Object)
-
-```mermaid
-graph TD
-    subgraph "Nivel 0 - Entry Point"
-        TW[ThisWorkbook]
-    end
-
-    subgraph "Nivel 1 - GOD OBJECT"
-        APP[clsAplicacion<br/>479 lineas<br/>🔴 8 dependencias<br/>🔴 20+ manejadores<br/>🔴 3 responsabilidades]
-    end
-
-    subgraph "Nivel 2 - Servicios"
-        CFG[clsConfiguration]
-        EXEC[clsExecutionContext]
-        FM[clsFileManager]
-        OPP[clsOpportunitiesMgr]
-        CHART[clsChartEventsManager]
-        FS[clsFSMonitoringCoord]
-    end
-
-    subgraph "Nivel 3 - UI"
-        RIBBONEV[clsRibbonEvents<br/>🟠 2 responsabilidades]
-        RIBBONST[clsRibbonState]
-    end
-
-    TW --> APP
-    APP --> CFG
-    APP --> EXEC
-    APP --> FM
-    APP --> OPP
-    APP --> CHART
-    APP --> FS
-    APP --> RIBBONEV
-    APP --> RIBBONST
-
-    APP -.WithEvents.-> EXEC
-    APP -.WithEvents.-> OPP
-    APP -.WithEvents.-> CHART
-    APP -.WithEvents.-> FS
-    APP -.WithEvents.-> RIBBONEV
-    APP -.WithEvents.-> RIBBONST
-
-    style APP fill:#ff6b6b
-    style RIBBONEV fill:#ffa500
-```
-
-##### Arquitectura REFACTORIZADA (Patrones aplicados)
-
-```mermaid
-graph TD
-    subgraph "Nivel 0 - Entry Point"
-        TW[ThisWorkbook]
-    end
-
-    subgraph "Nivel 1 - Facade"
-        APP[clsAplicacion<br/>🟢 Facade simplificado]
-    end
-
-    subgraph "Nivel 2 - Infraestructura NUEVA"
-        SM[clsServiceManager<br/>🆕 DI Container]
-        EC[clsEventCoordinator<br/>🆕 Mediator]
-        AC[clsApplicationContext<br/>🆕 Context Object]
-    end
-
-    subgraph "Nivel 3 - Servicios"
-        CFG[clsConfiguration]
-        EXEC[clsExecutionContext]
-        FM[clsFileManager]
-        OPP[clsOpportunitiesMgr]
-        CHART[clsChartEventsManager]
-        FS[clsFSMonitoringCoord]
-    end
-
-    subgraph "Nivel 4 - UI"
-        RUI[clsRibbonUI<br/>🆕 SRP]
-        REV[clsRibbonEvents<br/>🟢 Solo eventos]
-        RST[clsRibbonState]
-    end
-
-    subgraph "Nivel 5 - Interfaces NUEVAS"
-        IS[IService<br/>🆕]
-        IF[IFormatter<br/>🆕]
-    end
-
-    TW --> APP
-    APP --> SM
-
-    SM --> AC
-    SM --> CFG
-    SM --> EXEC
-    SM --> FM
-    SM --> OPP
-    SM --> CHART
-    SM --> FS
-    SM --> RUI
-
-    EC --> SM
-    EC --> AC
-    EC -.WithEvents.-> EXEC
-    EC -.WithEvents.-> OPP
-    EC -.WithEvents.-> CHART
-    EC -.WithEvents.-> FS
-    EC -.WithEvents.-> REV
-    EC -.WithEvents.-> RST
-
-    AC --> RST
-    AC --> EXEC
-
-    RUI -.implements.-> IS
-
-    style SM fill:#90EE90
-    style EC fill:#90EE90
-    style AC fill:#90EE90
-    style RUI fill:#90EE90
-    style IS fill:#87CEEB
-    style IF fill:#87CEEB
-    style APP fill:#98FB98
-    style REV fill:#98FB98
-```
-
-**Cambios arquitectonicos clave:**
-
-| Aspecto | Main | Refactorizada | Mejora |
-|---------|------|---------------|--------|
-| **Creacion servicios** | clsAplicacion (directo) | clsServiceManager (DI) | Desacoplamiento |
-| **Manejo eventos** | clsAplicacion (20+ handlers) | clsEventCoordinator (Mediator) | SRP |
-| **Estado compartido** | Variables en clsAplicacion | clsApplicationContext | Cohesion |
-| **Gestion IRibbonUI** | clsRibbonEvents (mezclado) | clsRibbonUI (separado) | SRP |
-| **Ciclo de vida servicios** | Ad-hoc | IService interface | Estandarizacion |
-
----
-
-#### 2.1.3. Matriz de Dependencias - Rama Refactorizada
-
-|                         | IService | ServiceMgr | EventCoord | AppContext | RibbonUI | Config | ExecCtx | OppMgr | ChartMgr | FSMon |
-|-------------------------|:--------:|:----------:|:----------:|:----------:|:--------:|:------:|:-------:|:------:|:--------:|:-----:|
-| **clsServiceManager**   |    ✓     |            |            |     ✓      |    ✓     |   ✓    |    ✓    |   ✓    |    ✓     |   ✓   |
-| **clsEventCoordinator** |          |     ✓      |            |     ✓      |          |        | WithEv  | WithEv |  WithEv  |WithEv |
-| **clsApplicationContext**|         |            |            |            |          |        |    ✓    |        |          |       |
-| **clsRibbonUI**         |  Impl    |            |            |            |          |        |         |        |          |       |
-| **clsAplicacion**       |          |     ✓      |            |            |          |        |         |        |          |       |
-
-**Leyenda:**
-- ✓ : Usa directamente
-- Impl : Implementa interface
-- WithEv : Suscripcion via WithEvents
-
-**Analisis de acoplamiento:**
-- ✅ **clsServiceManager:** Acoplamiento controlado - es el DI Container (debe conocer todos los servicios)
-- ✅ **clsEventCoordinator:** Solo WithEvents - acoplamiento por eventos (desacoplado)
-- ✅ **clsAplicacion:** Reducido de 8 a 1 dependencia (solo ServiceManager)
-- ✅ **clsRibbonUI:** Solo implementa IService - bajo acoplamiento
-
----
-
-### 2.2. DIAGRAMAS DE COMPORTAMIENTO
-
-#### 2.2.1. Diagrama de Secuencia: Inicializacion REFACTORIZADA
-
-```mermaid
-sequenceDiagram
-    participant Excel
-    participant TW as ThisWorkbook
-    participant SM as clsServiceManager
-    participant AC as clsApplicationContext
-    participant EC as clsEventCoordinator
-    participant CFG as clsConfiguration
-    participant EXEC as clsExecutionContext
-    participant RUI as clsRibbonUI
-
-    Excel->>TW: Workbook_Open()
-    TW->>TW: InitLogger()
-
-    Note over TW: Fase 1 - Crear Contexto
-    TW->>AC: Set appContext = New clsApplicationContext
-
-    Note over TW: Fase 2 - Crear ServiceManager
-    TW->>SM: Set serviceManager = New clsServiceManager
-    TW->>SM: Initialize(appContext)
-    SM->>SM: Set mAppContext = appContext
-
-    Note over TW: Fase 3 - Registrar Servicios
-    TW->>CFG: Set cfg = New clsConfiguration
-    TW->>SM: RegisterSingleton(cfg)
-    SM->>SM: mServices.Add "clsConfiguration", cfg
-
-    TW->>EXEC: Set exec = New clsExecutionContext
-    TW->>SM: RegisterSingleton(exec)
-
-    TW->>RUI: Set ribbonUI = New clsRibbonUI
-    TW->>SM: RegisterSingleton(ribbonUI)
-
-    Note over TW: Fase 4 - Inicializar Todos
-    TW->>SM: InitializeAll()
-    loop Para cada servicio
-        SM->>SM: EnsureInitialized(service)
-        SM->>CFG: IService_Initialize(Me)
-        SM->>EXEC: IService_Initialize(Me)
-        SM->>RUI: IService_Initialize(Me)
-    end
-
-    Note over TW: Fase 5 - Crear EventCoordinator
-    TW->>EC: Set coordinator = New clsEventCoordinator
-    TW->>EC: Initialize(serviceManager, appContext)
-    EC->>SM: Set mExecutionContext = SM.ExecutionContext
-    EC->>EC: Suscribir WithEvents a todos los servicios
-
-    Note over TW: Inicializacion completa
-    TW-->>Excel: Add-in listo
-```
-
-**Diferencias con rama main:**
-- Main: clsAplicacion crea todo directamente en Class_Initialize
-- Refactorizada: ServiceManager registra y luego inicializa (Lazy Init posible)
-
----
-
-#### 2.2.2. Diagrama de Secuencia: Manejo de Evento (Comparado)
-
-##### En MAIN (clsAplicacion maneja directamente)
-
-```mermaid
-sequenceDiagram
-    participant EXEC as clsExecutionContext
-    participant APP as clsAplicacion
-    participant FM as clsFileManager
-    participant RIB as clsRibbonEvents
-
-    EXEC->>APP: ctx_SheetActivated(sh)
-    Note over APP: God Object maneja todo
-    APP->>APP: mChartEventsManager.WatchSheet(sh)
-    APP->>APP: bCanInvertAxes = EsValidoInvertirEjes()
-    APP->>RIB: InvalidarRibbon()
-```
-
-##### En REFACTORIZADA (clsEventCoordinator como Mediator)
-
-```mermaid
-sequenceDiagram
-    participant EXEC as clsExecutionContext
-    participant EC as clsEventCoordinator
-    participant SM as clsServiceManager
-    participant AC as clsApplicationContext
-    participant RUI as clsRibbonUI
-
-    EXEC->>EC: mExecutionContext_SheetActivated(sh)
-    Note over EC: Mediator coordina
-    EC->>SM: SM.ChartEventsManager.WatchSheet(sh)
-    EC->>AC: Actualizar estado si necesario
-    EC->>SM: SM.RibbonUI.InvalidarRibbon()
-    SM->>RUI: InvalidarRibbon()
-```
-
-**Ventajas del patron Mediator:**
-- clsAplicacion no necesita WithEvents (reduccion acoplamiento)
-- Facil agregar nuevas reacciones sin modificar emisor
-- Testeo mas sencillo (mockear EventCoordinator)
-
----
-
-#### 2.2.3. Diagrama de Secuencia: Accion Usuario (Generar Graficos)
-
-```mermaid
-sequenceDiagram
-    participant User as Usuario
-    participant XML as Ribbon XML
-    participant CB as modCALLBACKSRibbon
-    participant EC as clsEventCoordinator
-    participant REV as clsRibbonEvents
-    participant SM as clsServiceManager
-    participant Grafico as modMACROGraficoSensibilidad
-
-    User->>XML: Click "Generar Graficos"
-    XML->>CB: OnGenerarGraficosDesdeCurvasRto(control)
-
-    Note over CB: Acceso via ServiceManager
-    CB->>SM: App.ServiceManager.EventCoordinator
-    CB->>EC: EC.RibbonEvents.OnGenerarGraficosDesdeCurvasRto()
-
-    EC->>REV: OnGenerarGraficosDesdeCurvasRto()
-    REV->>REV: RaiseEvent GenerarGraficosDesdeCurvasRto
-
-    REV->>EC: mRibbonEvents_GenerarGraficosDesdeCurvasRto()
-
-    Note over EC: Mediator ejecuta accion
-    EC->>Grafico: GenerarGraficosDesdeCurvasRto_Impl()
-
-    alt Error
-        EC->>EC: LogError + MsgBox
-    end
-```
-
----
-
-#### 2.2.4. Diagrama de Flujo: Resolucion de Servicios
-
-```mermaid
-flowchart TD
-    A[Cliente solicita servicio] --> B{ServiceManager.Property}
-    B --> C[Ej: SM.FileManager]
-
-    C --> D{Servicio registrado?}
-    D -->|No| E[Return Nothing]
-    D -->|Si| F{Servicio inicializado?}
-
-    F -->|Si| G[Return servicio]
-    F -->|No| H[EnsureInitialized]
-
-    H --> I[service.IService_Initialize Me]
-    I --> J[LogInfo 'Servicio inicializado']
-    J --> G
-
-    style H fill:#90EE90
-    style I fill:#90EE90
-```
-
-**Patron:** Lazy Initialization + Dependency Injection
-
----
-
-#### 2.2.5. Maquina de Estados: Ciclo de Vida de Servicio (IService)
-
-```mermaid
-stateDiagram-v2
-    [*] --> Created : New clsXXX
-
-    Created --> Registered : ServiceManager.RegisterSingleton()
-    note right of Registered
-        Servicio en diccionario
-        pero NO inicializado
-    end note
-
-    Registered --> Initializing : EnsureInitialized()
-
-    Initializing --> Initialized : IService_Initialize(dependencies)
-    note right of Initialized
-        IsInitialized = True
-        Listo para usar
-    end note
-
-    Initialized --> Disposing : IService_Dispose()
-
-    Disposing --> Disposed : Recursos liberados
-    note right of Disposed
-        IsInitialized = False
-        No usar mas
-    end note
-
-    Disposed --> [*]
-```
-
-**Estados de IService:**
-| Estado | IsInitialized | Descripcion |
-|--------|---------------|-------------|
-| Created | False | Instancia creada, no registrada |
-| Registered | False | En ServiceManager, no inicializada |
-| Initialized | True | Lista para usar |
-| Disposed | False | Recursos liberados |
-
----
-
-### 2.3. RESUMEN DE CAMBIOS EN DEPENDENCIAS
-
-#### Reduccion de Acoplamiento
-
-| Clase | Dependencias en Main | Dependencias en Refactorizada | Reduccion |
-|-------|---------------------|------------------------------|-----------|
-| clsAplicacion | 8 (directas) + 6 (WithEvents) | 1 (ServiceManager) | **-13** |
-| clsRibbonEvents | 2 responsabilidades | 1 responsabilidad | SRP ✅ |
-| Callbacks Ribbon | App.Ribbon.XXX | SM.EventCoordinator.RibbonEvents | Indirecto ✅ |
-
-#### Nuevos Patrones Implementados
-
-| Patron | Clase | Beneficio |
-|--------|-------|-----------|
-| DI Container | clsServiceManager | Desacopla creacion de uso |
-| Mediator | clsEventCoordinator | Centraliza coordinacion eventos |
-| Context Object | clsApplicationContext | Agrupa estado relacionado |
-| Interface | IService | Estandariza ciclo de vida |
-| SRP Extraction | clsRibbonUI | Separa gestion IRibbonUI |
-
----
-
-## FIN SECCION 2 - ENTREGA 2
-
-### Resumen de Entrega 2
-
-**Diagramas creados:**
-- 1 Diagrama UML de clases (arquitectura refactorizada)
-- 2 Diagramas de componentes (comparacion Main vs Refactorizada)
-- 1 Matriz de dependencias
-- 4 Diagramas de secuencia (inicializacion, eventos, acciones)
-- 2 Diagramas de flujo/estados (resolucion servicios, ciclo IService)
-
-**Diferencias arquitectonicas clave visualizadas:**
-1. **God Object eliminado:** clsAplicacion pasa de 14 dependencias a 1
-2. **Mediator Pattern:** clsEventCoordinator centraliza 24 manejadores
-3. **DI Container:** clsServiceManager gestiona ciclo de vida
-4. **SRP aplicado:** clsRibbonUI extrae gestion IRibbonUI
-5. **Interfaces:** IService estandariza servicios
-
----
-
-## CHANGELOG
-
-| Fecha | Version | Cambios | Autor |
-|-------|---------|---------|-------|
-| 2026-01-16 | 1.1 | Seccion 2 completa - Grafos de Dependencias | Claude |
-| 2026-01-16 | 1.0 | Seccion 1 completa - Inventario rama refactorizada | Claude |
-
----
-
-> **Esperando aprobacion para continuar con Entrega 3: Seccion 3 - Inventario de Funcionalidad**
