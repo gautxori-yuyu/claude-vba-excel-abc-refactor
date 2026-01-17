@@ -949,15 +949,300 @@ graph LR
 
 ---
 
+## SECCION 2: GRAFOS DE DEPENDENCIAS
+
+> **Objetivo:** Visualizar relaciones entre componentes
+
+### 2.1. Diagrama de Arquitectura General
+
+```mermaid
+graph TD
+    subgraph "Entry Point"
+        TW[ThisWorkbook]
+    end
+
+    subgraph "Composition Root"
+        APP[clsAplicacion]
+    end
+
+    subgraph "Infraestructura"
+        SM[clsServiceManager]
+        EC[clsEventCoordinator]
+        AC[clsApplicationContext]
+    end
+
+    subgraph "Servicios"
+        CFG[clsConfiguration]
+        EXEC[clsExecutionContext]
+        FM[clsFileManager]
+        OPP[clsOpportunitiesMgr]
+        CHART[clsChartEventsManager]
+        FS[clsFSMonitoringCoord]
+        RUI[clsRibbonUI]
+    end
+
+    subgraph "Estado"
+        RST[clsRibbonState]
+        CST[clsChartState]
+    end
+
+    subgraph "UI"
+        REV[clsRibbonEvents]
+        CB[modCALLBACKSRibbon]
+    end
+
+    TW --> APP
+    APP --> SM
+    APP --> EC
+    APP --> AC
+
+    SM --> CFG
+    SM --> EXEC
+    SM --> FM
+    SM --> OPP
+    SM --> CHART
+    SM --> FS
+    SM --> RUI
+
+    EC -.WithEvents.-> EXEC
+    EC -.WithEvents.-> OPP
+    EC -.WithEvents.-> CHART
+    EC -.WithEvents.-> FS
+    EC -.WithEvents.-> RST
+    EC -.WithEvents.-> REV
+
+    AC --> RST
+    AC --> CST
+    AC --> EXEC
+
+    CB --> APP
+```
+
+---
+
+### 2.2. Diagrama de Clases UML
+
+```mermaid
+classDiagram
+    class IService {
+        <<interface>>
+        +Initialize(dependencies: Object)
+        +Dispose()
+        +IsInitialized: Boolean
+        +ServiceName: String
+    }
+
+    class clsServiceManager {
+        -mServices: Dictionary
+        -mAppContext: clsApplicationContext
+        +Initialize(appContext)
+        +RegisterSingleton(instance: IService)
+        +InitializeAll()
+        +DisposeAll()
+        +Configuration: clsConfiguration
+        +ExecutionContext: clsExecutionContext
+        +FileManager: clsFileManager
+    }
+
+    class clsEventCoordinator {
+        -mServiceManager: clsServiceManager
+        -mAppContext: clsApplicationContext
+        +Initialize(serviceManager, appContext)
+        +RibbonEvents: clsRibbonEvents
+        +Dispose()
+    }
+
+    class clsApplicationContext {
+        -mRibbonState: clsRibbonState
+        -mExecutionContext: clsExecutionContext
+        -mChartState: clsChartState
+        +Initialize(RibbonState, execContext, ChartState)
+        +RibbonState: clsRibbonState
+        +CurrentOpportunity: Object
+        +Reset()
+    }
+
+    class clsAplicacion {
+        -mServiceManager: clsServiceManager
+        -mEventCoordinator: clsEventCoordinator
+        -mAppContext: clsApplicationContext
+        +Initialize()
+        +Terminate()
+        +Services: clsServiceManager
+        +Context: clsApplicationContext
+    }
+
+    clsConfiguration ..|> IService
+    clsExecutionContext ..|> IService
+    clsFileManager ..|> IService
+    clsOpportunitiesMgr ..|> IService
+    clsChartEventsManager ..|> IService
+    clsFSMonitoringCoord ..|> IService
+    clsRibbonUI ..|> IService
+
+    clsAplicacion --> clsServiceManager
+    clsAplicacion --> clsEventCoordinator
+    clsAplicacion --> clsApplicationContext
+    clsServiceManager --> IService
+    clsEventCoordinator --> clsServiceManager
+```
+
+---
+
+### 2.3. Matriz de Dependencias
+
+|                         | ServiceMgr | EventCoord | AppContext | Config | ExecCtx | FileMgr | OppMgr | ChartMgr | FSMon | RibbonUI |
+|-------------------------|:----------:|:----------:|:----------:|:------:|:-------:|:-------:|:------:|:--------:|:-----:|:--------:|
+| **clsAplicacion**       |     ✓      |     ✓      |     ✓      |        |         |         |        |          |       |          |
+| **clsServiceManager**   |            |            |     ✓      |   ✓    |    ✓    |    ✓    |   ✓    |    ✓     |   ✓   |    ✓     |
+| **clsEventCoordinator** |     ✓      |            |     ✓      |        |   WE    |         |   WE   |    WE    |  WE   |          |
+| **clsFileManager**      |            |            |            |        |   WE    |         |        |          |       |          |
+| **clsOpportunitiesMgr** |            |            |            |   ✓    |   WE    |         |        |          |       |          |
+| **clsFSMonitoringCoord**|            |            |            |   ✓    |         |         |        |          |       |          |
+
+**Leyenda:** ✓ = Dependencia directa | WE = WithEvents
+
+---
+
+### 2.4. Diagrama de Secuencia: Inicializacion
+
+```mermaid
+sequenceDiagram
+    participant Excel
+    participant TW as ThisWorkbook
+    participant APP as clsAplicacion
+    participant SM as clsServiceManager
+    participant AC as clsApplicationContext
+    participant EC as clsEventCoordinator
+
+    Excel->>TW: Workbook_Open()
+    TW->>TW: InitLogger()
+
+    TW->>APP: Initialize()
+
+    APP->>AC: New clsApplicationContext
+    APP->>SM: New clsServiceManager
+    APP->>SM: Initialize(appContext)
+
+    APP->>SM: RegisterSingleton(Configuration)
+    APP->>SM: RegisterSingleton(ExecutionContext)
+    APP->>SM: RegisterSingleton(FileManager)
+    APP->>SM: RegisterSingleton(...)
+
+    APP->>SM: InitializeAll()
+
+    APP->>EC: New clsEventCoordinator
+    APP->>EC: Initialize(serviceManager, appContext)
+
+    EC->>EC: Suscribir WithEvents
+
+    APP-->>TW: Inicializacion completa
+```
+
+---
+
+### 2.5. Diagrama de Secuencia: Evento de Usuario
+
+```mermaid
+sequenceDiagram
+    participant User as Usuario
+    participant CB as modCALLBACKSRibbon
+    participant APP as clsAplicacion
+    participant EC as clsEventCoordinator
+    participant REV as clsRibbonEvents
+    participant MOD as modMACRO*
+
+    User->>CB: Click boton Ribbon
+    CB->>APP: App()
+    CB->>EC: App.Events.RibbonEvents
+    CB->>REV: OnGenerarGraficos()
+
+    REV->>REV: RaiseEvent GenerarGraficosDesdeCurvasRto
+
+    REV-->>EC: mRibbonEvt_GenerarGraficosDesdeCurvasRto()
+    EC->>MOD: Ejecutar logica de negocio
+```
+
+---
+
+### 2.6. Diagrama de Flujo: Resolucion de Servicios
+
+```mermaid
+flowchart TD
+    A[Cliente solicita servicio] --> B[ServiceManager.Property]
+    B --> C{Servicio registrado?}
+    C -->|No| D[Return Nothing]
+    C -->|Si| E{Inicializado?}
+    E -->|Si| F[Return servicio]
+    E -->|No| G[IService_Initialize]
+    G --> H[Marcar inicializado]
+    H --> F
+```
+
+---
+
+### 2.7. Maquina de Estados: Ciclo de Vida IService
+
+```mermaid
+stateDiagram-v2
+    [*] --> Created : New
+    Created --> Registered : RegisterSingleton()
+    Registered --> Initialized : IService_Initialize()
+    Initialized --> Disposed : IService_Dispose()
+    Disposed --> [*]
+```
+
+---
+
+### 2.8. Flujo de Eventos
+
+```mermaid
+graph LR
+    subgraph "Emisores"
+        EXEC[clsExecutionContext]
+        OPP[clsOpportunitiesMgr]
+        CHART[clsChartEventsManager]
+        FS[clsFSMonitoringCoord]
+        RST[clsRibbonState]
+        REV[clsRibbonEvents]
+    end
+
+    subgraph "Mediator"
+        EC[clsEventCoordinator]
+    end
+
+    subgraph "Acciones"
+        ACT[Logica de negocio]
+        UPD[Actualizar estado]
+        INV[Invalidar Ribbon]
+    end
+
+    EXEC -->|WithEvents| EC
+    OPP -->|WithEvents| EC
+    CHART -->|WithEvents| EC
+    FS -->|WithEvents| EC
+    RST -->|WithEvents| EC
+    REV -->|WithEvents| EC
+
+    EC --> ACT
+    EC --> UPD
+    EC --> INV
+```
+
+---
+
+## FIN SECCION 2
+
+---
+
 ## CHANGELOG
 
 | Fecha | Version | Cambios | Autor |
 |-------|---------|---------|-------|
+| 2026-01-17 | 0.3 | Seccion 2 completa - Grafos de Dependencias | Claude |
 | 2026-01-17 | 0.2 | Seccion 1 completa + Estado Critico documentado | Claude |
-| 2026-01-17 | 0.1 | Inicio Seccion 1 - primeras 10 clases documentadas | Claude |
+| 2026-01-17 | 0.1 | Inicio Seccion 1 | Claude |
 
 ---
 
-> **Esperando aprobacion para continuar con Seccion 2: Grafos de Dependencias**
-
----
+> **Esperando aprobacion para continuar con Entrega 3: Secciones 3-6**
