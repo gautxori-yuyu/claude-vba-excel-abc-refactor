@@ -7,94 +7,66 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
-'@Description: Estado l�gico del Ribbon
-'@Category: State
-
-'@Folder "2-Servicios.Excel.Ribbon"
+'@Folder("2-Infrastructure.State")
 Option Explicit
 
-Public Event StateChanged()
+' ===============================================================================
+' CLASE: clsRibbonState
+' ===============================================================================
+' PROPOSITO:
+'   Almacena estado lógico del Ribbon (modo actual, visibilidad).
+'   Determina qué tabs/controles están visibles y habilitados.
+'
+'   4 modos:
+'     0 = OpportunityOnly (tab visible solo si es fichero oportunidad)
+'     1 = User (tab siempre visible, grupo Admin oculto)
+'     2 = Admin (tab visible, grupo Admin visible)
+'     3 = Hidden (tab completamente oculto)
+'
+' -------------------------------------------------------------------------------
+' RELACIONES CON OTRAS CLASES:
+' -------------------------------------------------------------------------------
+'   USADO POR:
+'     - clsRibbonManager (lee estado para invalidar controles)
+'     - modRibbonCallbacks (lee estado para GetTabVisible, GetControlEnabled)
+'     - clsApplication (cambia modo con ToggleModo)
+'
+'   CONTENIDO EN:
+'     - clsApplicationState
+'
+' -------------------------------------------------------------------------------
+' MECANISMOS DE COMUNICACION:
+' -------------------------------------------------------------------------------
+'   - PULL: Properties Get/Set
+'   - ELIMINA: Evento StateChanged (ahora property setter notifica directamente)
+'
+' -------------------------------------------------------------------------------
+' FUNCIONALIDADES MIGRADAS DESDE MAIN:
+' -------------------------------------------------------------------------------
+' Archivo origen: clsRibbonState.cls (líneas 1-100)
+'
+' F-001: Gestión de modo ribbon
+'   - Legacy: mModoRibbon As RibbonModeEnum línea ~10
+'   - Legacy: ToggleModo() línea ~45
+'   - Migra: Property ModoActual As Long (Get/Set)
+'   - Migra: Sub ToggleModo()
+'
+' F-002: Visibilidad de tab
+'   - Legacy: TabVisible() As Boolean línea ~67
+'   - Migra: Property TabVisible As Boolean (calculado)
+'
+' F-003: Visibilidad de grupo Admin
+'   - Legacy: GrupoAdminVisible() As Boolean línea ~89
+'   - Migra: Property AdminGroupVisible As Boolean (calculado)
+'
+' ELIMINACIONES:
+'   - ❌ Public Event StateChanged (línea ~12)
+'   - Reemplazado por: Property setter llama directamente a RibbonManager.InvalidateRibbon()
+'
+' ===============================================================================
 
-Private mModoRibbon As eRibbonMode
-Private mVisible As Boolean
-
-Public Property Get Modo() As eRibbonMode
-    Modo = mModoRibbon
-End Property
-
-Public Property Let Modo(Value As eRibbonMode)
-    If mModoRibbon = Ribbon_Undefined Then
-        ' se considera una INICIALIZACION, no un cambio de estado
-        mModoRibbon = Value
-    ElseIf mModoRibbon <> Value Then
-        mModoRibbon = Value
-        RaiseEvent StateChanged
-    End If
-End Property
-
-Public Sub ToggleModo()
-    Select Case mModoRibbon
-    Case Ribbon_Admin
-        mModoRibbon = Ribbon_Hidden
-    Case Ribbon_Hidden
-        mModoRibbon = Ribbon_User
-    Case Ribbon_User
-        mModoRibbon = Ribbon_OpportunityOnly
-    Case Ribbon_OpportunityOnly
-        mModoRibbon = Ribbon_Admin
-    Case Else
-        mModoRibbon = Ribbon_OpportunityOnly
-    End Select
-    RaiseEvent StateChanged
-End Sub
-
-Public Function RibbonStateDescription() As String
-    Select Case mModoRibbon
-    Case Ribbon_Admin
-        RibbonStateDescription = "Admin"
-    Case Ribbon_Hidden
-        RibbonStateDescription = "(oculto)"
-    Case Ribbon_OpportunityOnly
-        RibbonStateDescription = "Fich. oportunidad"
-    Case Ribbon_User
-        RibbonStateDescription = "User"
-    Case Else
-        RibbonStateDescription = "Fich. oportunidad"
-    End Select
-End Function
-
-Public Property Get Visible() As Boolean
-    Visible = mVisible
-End Property
-
-Public Property Let Visible(Value As Boolean)
-    If mVisible <> Value Then
-        mVisible = Value
-        RaiseEvent StateChanged
-    End If
-End Property
-
-'@Description: Indica si la pesta�a principal del Ribbon debe ser visible
-'@Scope: p�blico (consultado por callbacks)
-'@Returns: Boolean
-'@Category: UI / Estado
-Public Function IsRibbonTabVisible() As Boolean
-    Select Case mModoRibbon
-    Case Ribbon_Admin
-        IsRibbonTabVisible = True
-
-    Case Ribbon_User
-        IsRibbonTabVisible = True
-
-    Case Ribbon_OpportunityOnly
-        IsRibbonTabVisible = EsFicheroOportunidad()
-
-    Case Else
-        IsRibbonTabVisible = False
-    End Select
-End Function
-
-Public Function IsAdminGroupVisible() As Boolean
-    IsAdminGroupVisible = (mModoRibbon = Ribbon_Admin)
-End Function
-
+' --- IMPLEMENTACION PENDIENTE ---
+' TODO Sprint 2: Property ModoActual As Long
+' TODO Sprint 2: Property TabVisible As Boolean
+' TODO Sprint 2: Property AdminGroupVisible As Boolean
+' TODO Sprint 2: Sub ToggleModo()

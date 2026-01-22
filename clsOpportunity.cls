@@ -7,35 +7,69 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
-' clase desde la que se gestiona cada oportunidad, y los elementos (entidad compresor, ficheros, etc) que la constituyen
-
-'@Folder "4-Oportunidades y compresores"
+'@Folder("4-Domain.Entities")
 Option Explicit
 
-' Atributos b�sicos:
-Public Name As String
-Public Path As String
-Public Customer As String
-Public QuoteNumber As String
-Public CreatedDate As Date
-'Public Status As OpportunityStatus ' Enum
+' ===============================================================================
+' CLASE: clsOpportunity
+' ===============================================================================
+' PROPOSITO:
+'   Entidad de dominio que representa una oportunidad comercial.
+'   Modelo simple con:
+'     - Nombre de la oportunidad
+'     - Ruta de la carpeta asociada
+'     - Métodos de validación de negocio (si aplican)
+'
+'   DOMINIO PURO: Sin dependencias de infraestructura.
+'
+' -------------------------------------------------------------------------------
+' RELACIONES CON OTRAS CLASES:
+' -------------------------------------------------------------------------------
+'   USADA POR:
+'     - clsOpportunityManager (crea y gestiona colección)
+'     - clsExcelFile (asocia archivos con oportunidades)
+'
+'   USA:
+'     - Ninguna (entidad pura de dominio)
+'
+' -------------------------------------------------------------------------------
+' MECANISMOS DE COMUNICACION:
+' -------------------------------------------------------------------------------
+'   - PULL: Clientes leen properties (Nombre, Path)
+'   - Sin eventos
+'
+' -------------------------------------------------------------------------------
+' FUNCIONALIDADES MIGRADAS DESDE MAIN:
+' ===============================================================================
+' Archivo origen: clsOpportunity.cls (líneas 1-41)
+'
+' F-001: Atributos de oportunidad
+'   - Legacy: Private mPath As String (línea ~10)
+'   - Legacy: Private mNombre As String (línea ~11)
+'   - Migra: Private _path As String
+'   - Migra: Private _name As String
+'
+' F-002: Propiedades de acceso
+'   - Legacy: Property Get/Let Path (líneas 15-25)
+'   - Legacy: Property Get/Let Nombre (líneas 27-37)
+'   - Migra: Public Property Get/Let Path As String
+'   - Migra: Public Property Get/Let Name As String
+'
+' F-003: Validación de nombre
+'   - Legacy: NO EXISTE
+'   - NUEVO: Public Function IsValidName() As Boolean
+'   - Valida que nombre no esté vacío, no contenga caracteres inválidos
+'
+' F-004: Comparación de oportunidades
+'   - Legacy: NO EXISTE
+'   - NUEVO: Public Function Equals(other As clsOpportunity) As Boolean
+'
+' ===============================================================================
 
-' Componentes:
-'Public Files As clsOpportunityFileCollection ' Implementa IFile
-'Public Compressors As clsCompressorCollection
-'Public Offers As clsOfferCollection
-'Public Documents As clsDocumentCollection
-
-' M�todos:
-Public Function IsValid() As Boolean
-
-End Function
-Public Sub GenerateFolderStructure()
-
-End Sub
-Public Function GetBudgetTemplate() As clsExcelFile
-
-End Function
-Public Sub SyncWithRepository()
-
-End Sub
+' --- IMPLEMENTACION PENDIENTE ---
+' TODO Sprint 2: Private _path As String
+' TODO Sprint 2: Private _name As String
+' TODO Sprint 2: Property Get/Let Path As String
+' TODO Sprint 2: Property Get/Let Name As String
+' TODO Sprint 3: Public Function IsValidName() As Boolean
+' TODO Sprint 3: Public Function Equals(other) As Boolean

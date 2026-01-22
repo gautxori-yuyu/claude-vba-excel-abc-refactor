@@ -7,88 +7,72 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
-'@Folder "2-Servicios.DBs"
+'@Folder("5-Data")
 Option Explicit
 
-Private m_Cnn As Object ' ADODB.Connection
+' ===============================================================================
+' CLASE: clsDBContext
+' ===============================================================================
+' PROPOSITO:
+'   Contexto de acceso a base de datos (si aplica).
+'   Gestiona conexiones a base de datos externa (SQL Server, Access, etc).
+'
+'   Si el sistema solo usa Excel como "base de datos", esta clase puede
+'   ser un placeholder o eliminarseEn Sprint 2.
+'
+' -------------------------------------------------------------------------------
+' RELACIONES CON OTRAS CLASES:
+' -------------------------------------------------------------------------------
+'   USA:
+'     - ADODB.Connection (para conexión a BD)
+'     - ADODB.Recordset (para queries)
+'
+'   USADA POR:
+'     - clsOfferRepository (ejecuta queries)
+'     - Otros repositorios (si existen)
+'
+' -------------------------------------------------------------------------------
+' MECANISMOS DE COMUNICACION:
+' -------------------------------------------------------------------------------
+'   - PULL: Repositorios llaman ExecuteQuery, ExecuteNonQuery
+'   - Sin eventos
+'
+' -------------------------------------------------------------------------------
+' FUNCIONALIDADES MIGRADAS DESDE MAIN:
+' ===============================================================================
+' Archivo origen: clsDBContext.cls (líneas 1-94)
+'
+' F-001: Conexión a base de datos
+'   - Legacy: Private mConnection As ADODB.Connection (línea ~10)
+'   - Legacy: OpenConnection() (línea ~20)
+'   - Migra: Public Sub OpenConnection(connectionString As String)
+'
+' F-002: Cierre de conexión
+'   - Legacy: CloseConnection() (línea ~40)
+'   - Migra: Public Sub CloseConnection()
+'
+' F-003: Ejecutar query SELECT
+'   - Legacy: ExecuteQuery(sql) As ADODB.Recordset (línea ~50)
+'   - Migra: Public Function ExecuteQuery(sql As String) As ADODB.Recordset
+'
+' F-004: Ejecutar comando INSERT/UPDATE/DELETE
+'   - Legacy: ExecuteNonQuery(sql) (línea ~70)
+'   - Migra: Public Sub ExecuteNonQuery(sql As String)
+'
+' F-005: Validación de conexión
+'   - Legacy: IsConnected() As Boolean (línea ~85)
+'   - Migra: Public Function IsConnected() As Boolean
+'
+' NOTA: Evaluar en Sprint 2 si realmente se necesita base de datos externa
+'       o si Excel es suficiente. Si Excel, esta clase puede eliminarse.
+'
+' ===============================================================================
 
-Public Sub Conectar(ByVal RutaBD As String)
-    Select Case True
-        Case Len(RutaBD) = 0, Dir(RutaBD) = ""
-            Err.Raise Err.Number, , _
-                "Error ADO al conectar a DB." & vbCrLf & _
-                "Path a la DB inexistente:" & vbCrLf & RutaBD
-            Exit Sub
-    End Select
-    
-    Set m_Cnn = CreateObject("ADODB.Connection")
-'    If Not EstaConectado Then
-'            Err.Raise Err.Number, , "Error ADO, no hay conexion a la DB."
-'            Exit Sub
-'    End If
-    On Error GoTo ErrorHandler
-    m_Cnn.Open "Provider=Microsoft.ACE.OLEDB.16.0;Data Source=" & RutaBD
-    On Error GoTo 0
-    
-    Exit Sub
-ErrorHandler:
-    Err.Raise Err.Number, , _
-        "Error ADO al abrir conexi�n a DB: " & vbCrLf & _
-        Err.Description
-End Sub
-Public Function EstaConectado() As Boolean
-    EstaConectado = Not m_Cnn Is Nothing And m_Cnn.State = 1
-End Function
-
-Public Sub Desconectar()
-    If Not m_Cnn Is Nothing Then
-        If m_Cnn.State = 1 Then m_Cnn.Close
-        Set m_Cnn = Nothing
-    End If
-End Sub
-
-Public Function AbrirRecordset(ByVal Sql As String) As Object
-    Select Case True
-        Case Sql = ""
-            Err.Raise Err.Number, , _
-                "Error ADO al abrir Recordset." & vbCrLf & _
-                "Function SQL inexistente"
-            Exit Function
-    End Select
-    
-    Dim rs As Object
-    Set rs = CreateObject("ADODB.Recordset")
-    
-    If Not EstaConectado Then
-            Err.Raise Err.Number, , "Error ADO, no hay conexion a la DB."
-            Exit Function
-    End If
-
-    On Error GoTo ErrHandler
-    rs.Open Sql, m_Cnn, 1, 1   ' adOpenKeyset, adLockReadOnly
-    Set AbrirRecordset = rs
-    Exit Function
-
-ErrHandler:
-    Debug.Print Err.Number, , _
-        "Error ADO al abrir Recordset." & vbCrLf & _
-        "SQL ejecutado:" & vbCrLf & Sql & vbCrLf & _
-        Err.Description
-    Err.Raise Err.Number, , _
-        "Error ADO al abrir Recordset." & vbCrLf & _
-        "SQL ejecutado:" & vbCrLf & Sql & vbCrLf & _
-        Err.Description
-End Function
-
-Public Sub BeginTrans()
-    m_Cnn.BeginTrans
-End Sub
-
-Public Sub CommitTrans()
-    m_Cnn.CommitTrans
-End Sub
-
-Public Sub RollbackTrans()
-    m_Cnn.RollbackTrans
-End Sub
-
+' --- IMPLEMENTACION PENDIENTE ---
+' TODO Sprint 2: Evaluar si se necesita BD externa o solo Excel
+' TODO Sprint 2: Si BD: Private _connection As ADODB.Connection
+' TODO Sprint 2: Si BD: Public Sub OpenConnection(connectionString)
+' TODO Sprint 2: Si BD: Public Sub CloseConnection()
+' TODO Sprint 2: Si BD: Public Function ExecuteQuery(sql) As ADODB.Recordset
+' TODO Sprint 2: Si BD: Public Sub ExecuteNonQuery(sql)
+' TODO Sprint 2: Si Excel solo: Marcar clase como PLACEHOLDER o eliminar
