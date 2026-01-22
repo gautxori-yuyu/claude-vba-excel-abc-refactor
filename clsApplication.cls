@@ -11,99 +11,187 @@ Attribute VB_Exposed = False
 Option Explicit
 
 ' ===============================================================================
-' CLASE: clsApplication
+' CLASE: clsApplication - Composition Root
 ' ===============================================================================
-' PROPOSITO:
-'   Composition Root de la aplicación. Crea, configura y conecta TODOS los
-'   componentes del sistema en el orden correcto. Es el único punto de entrada
-'   para la inicialización y terminación de la aplicación.
-'
-'   NO contiene lógica de negocio, solo orchestración de ciclo de vida.
-'   NO escucha eventos de servicios (elimina los 6 WithEvents de legacy).
-'   SÍ recibe callbacks directos desde adaptadores de infraestructura.
-'
-' -------------------------------------------------------------------------------
-' RELACIONES CON OTRAS CLASES:
-' -------------------------------------------------------------------------------
-'   CREA (composición):
-'     - clsServiceContainer (DI container)
-'     - clsApplicationState (estado global)
-'     - clsApplicationConfiguration (configuración)
-'     - clsExcelExecutionContext (adaptador Excel)
-'     - clsChartEventAdapter (adaptador Chart)
-'     - clsFileSystemMonitor (monitor FS)
-'     - clsRibbonManager (gestor ribbon)
-'     - clsChartEventManager (gestor eventos chart)
-'     - clsFileManager (gestor archivos)
-'     - clsOpportunityManager (gestor oportunidades)
-'
-'   RECIBE (callbacks directos desde adaptadores):
-'     - clsExcelExecutionContext.OnWorkbookOpened(wb)
-'     - clsExcelExecutionContext.OnSheetActivated(sh)
-'     - clsFileSystemMonitor eventos de dominio (WithEvents - único permitido)
-'
-'   LLAMA (métodos públicos):
-'     - Todos los servicios mediante llamadas directas (NO eventos)
-'
-' -------------------------------------------------------------------------------
-' MECANISMOS DE COMUNICACION:
-' -------------------------------------------------------------------------------
-'   - PULL: Lee estado de clsApplicationState cuando necesita
-'   - PUSH: Llama directamente a métodos públicos de servicios
-'   - EVENTS: Solo escucha eventos de DOMINIO de clsFileSystemMonitor
-'   - CALLBACKS: Recibe callbacks directos desde adaptadores de infraestructura
-'
-' -------------------------------------------------------------------------------
-' FUNCIONALIDADES MIGRADAS DESDE MAIN:
-' -------------------------------------------------------------------------------
-' Archivo origen: clsAplicacion.cls (líneas 1-479)
-'
-' F-001: Inicialización de aplicación
-'   - Legacy: clsAplicacion.Class_Initialize() líneas 45-122
-'   - Migra: Creación de TODOS los servicios en orden correcto
-'   - Migra: Suscripción a eventos (reducida de 6 WithEvents a 1)
-'   - Migra: Configuración de callbacks directos
-'
-' F-002: Terminación de aplicación
-'   - Legacy: clsAplicacion.Class_Terminate() líneas 123-155
-'   - Migra: Liberación de servicios en orden inverso
-'   - Migra: Limpieza de estado
-'
-' F-003: Facade de acceso a servicios
-'   - Legacy: Properties Get líneas 156-211
-'   - Migra: Propiedades para acceder a servicios principales
-'   - ELIMINA: RibbonHandler (se mueve a clsRibbonManager)
-'
-' F-004: Coordinación de eventos de Excel
-'   - Legacy: ctx_WorkbookActivated línea 233
-'   - Legacy: ctx_SheetActivated línea 242
-'   - Legacy: ctx_SheetDeactivated línea 258
-'   - CAMBIA: De eventos WithEvents a callbacks directos
-'
-' F-005: Coordinación de eventos de FileSystem
-'   - Legacy: mFSMonitoringCoord_OpportunityCreated línea 302
-'   - Legacy: mFSMonitoringCoord_OpportunityDeleted línea 307
-'   - Legacy: mFSMonitoringCoord_TemplateCreated línea 328
-'   - MANTIENE: WithEvents (son eventos de DOMINIO 1-a-N)
-'
-' F-006: Comandos desde Ribbon
-'   - Legacy: evRibbon_GenerarGraficosDesdeCurvasRto línea 398
-'   - Legacy: evRibbon_InvertirEjes línea 409
-'   - Legacy: evRibbon_FormatearCGASING línea 418
-'   - Legacy: evRibbon_Configurador línea 433
-'   - CAMBIA: De eventos WithEvents a métodos públicos llamados directamente
-'
-' ELIMINACIONES (antes eran WithEvents, ahora llamadas directas):
-'   - ❌ ctx_* (ExecutionContext): Ahora callbacks directos
-'   - ❌ mOpportunities_* (OpportunitiesMgr): Ahora llamadas directas
-'   - ❌ mChartManager_* (ChartEventsManager): Ahora llamadas directas
-'   - ❌ evRibbon_* (RibbonEvents): Ahora métodos públicos
-'   - ❌ mRibbonState_StateChanged: Ahora property setter
-'
+' PROPOSITO: Crear, configurar y coordinar ciclo de vida de todos los servicios
+' MIGRADO DESDE: main:clsAplicacion.cls (479 lineas)
+' PATRÓN: Composition Root + Facade
 ' ===============================================================================
 
-' --- IMPLEMENTACION PENDIENTE ---
-' TODO Sprint 1: Implementar Initialize/Terminate
-' TODO Sprint 1: Crear servicios y configurar dependencias
-' TODO Sprint 2: Implementar callbacks desde adaptadores
-' TODO Sprint 3: Implementar métodos públicos para comandos Ribbon
+Private Const MODULE_NAME As String = "clsApplication"
+
+' ==========================================
+' SERVICIOS (SOLO CICLO DE VIDA - SIN EVENTOS)
+' ==========================================
+
+Private mConfig As clsApplicationConfiguration
+Private mState As clsApplicationState
+Private mExcelContext As clsExcelExecutionContext
+Private mFileManager As clsFileManager
+Private mOpportunityMgr As clsOpportunityManager
+Private mRibbonMgr As clsRibbonManager
+Private mFSMonitor As clsFileSystemMonitor
+
+Private mIsInitialized As Boolean
+
+' ==========================================
+' PROPIEDADES (FACADE)
+' ==========================================
+
+Public Property Get Configuration() As clsApplicationConfiguration
+    Set Configuration = mConfig
+End Property
+
+Public Property Get State() As clsApplicationState
+    Set State = mState
+End Property
+
+Public Property Get FileManager() As clsFileManager
+    Set FileManager = mFileManager
+End Property
+
+Public Property Get OpportunityManager() As clsOpportunityManager
+    Set OpportunityManager = mOpportunityMgr
+End Property
+
+Public Property Get RibbonManager() As clsRibbonManager
+    Set RibbonManager = mRibbonMgr
+End Property
+
+Public Property Get IsInitialized() As Boolean
+    IsInitialized = mIsInitialized
+End Property
+
+' ==========================================
+' INICIALIZACION (COMPOSITION ROOT)
+' ==========================================
+
+Public Sub Initialize()
+    On Error GoTo ErrHandler
+    
+    If mIsInitialized Then
+        LogWarning MODULE_NAME, "Initialize llamado múltiples veces - ignorando"
+        Exit Sub
+    End If
+    
+    LogInfo MODULE_NAME, "Iniciando aplicación..."
+    
+    ' ORDEN CRÍTICO: Sin dependencias → Con dependencias
+    
+    ' 1. Configuración (sin dependencias)
+    Set mConfig = New clsApplicationConfiguration
+    mConfig.LoadFromRegistry
+    LogInfo MODULE_NAME, "- Configuración cargada"
+    
+    ' 2. Estado global (sin dependencias)
+    Set mState = New clsApplicationState
+    LogInfo MODULE_NAME, "- Estado inicializado"
+    
+    ' 3. Contexto Excel (sin dependencias, solo suscribe eventos)
+    Set mExcelContext = New clsExcelExecutionContext
+    mExcelContext.Initialize
+    LogInfo MODULE_NAME, "- Contexto Excel inicializado"
+    
+    ' 4. FileManager (necesita ExcelContext)
+    Set mFileManager = New clsFileManager
+    ' TODO Sprint 2: mFileManager.Initialize mExcelContext
+    LogInfo MODULE_NAME, "- FileManager inicializado"
+    
+    ' 5. OpportunityManager (necesita Config)
+    Set mOpportunityMgr = New clsOpportunityManager
+    ' TODO Sprint 2: mOpportunityMgr.SetBaseFolder mConfig.OpportunitiesPath
+    LogInfo MODULE_NAME, "- OpportunityManager inicializado"
+    
+    ' 6. RibbonManager (necesita State)
+    Set mRibbonMgr = New clsRibbonManager
+    ' TODO Sprint 2: mRibbonMgr.Initialize mState
+    LogInfo MODULE_NAME, "- RibbonManager inicializado"
+    
+    ' 7. FileSystemMonitor (necesita Config)
+    Set mFSMonitor = New clsFileSystemMonitor
+    ' TODO Sprint 3: mFSMonitor.StartMonitoring mConfig.FoldersToWatch
+    LogInfo MODULE_NAME, "- FileSystemMonitor inicializado"
+    
+    mIsInitialized = True
+    LogInfo MODULE_NAME, "Aplicación iniciada correctamente"
+    
+    Exit Sub
+    
+ErrHandler:
+    LogError MODULE_NAME, "Error en Initialize", Err.Number, Err.Description
+    mIsInitialized = False
+    ' Re-lanzar error para que ThisWorkbook lo gestione
+    Err.Raise Err.Number, "clsApplication.Initialize", Err.Description
+End Sub
+
+' ==========================================
+' TERMINACION (CLEANUP)
+' ==========================================
+
+Public Sub Terminate()
+    On Error Resume Next ' Asegurar limpieza completa incluso con errores
+    
+    LogInfo MODULE_NAME, "Terminando aplicación..."
+    
+    ' Orden inverso a inicialización
+    
+    ' 7. FileSystemMonitor
+    If Not mFSMonitor Is Nothing Then
+        ' TODO Sprint 3: mFSMonitor.StopMonitoring
+        Set mFSMonitor = Nothing
+        LogInfo MODULE_NAME, "- FileSystemMonitor terminado"
+    End If
+    
+    ' 6. RibbonManager
+    If Not mRibbonMgr Is Nothing Then
+        ' TODO Sprint 2: mRibbonMgr.Terminate
+        Set mRibbonMgr = Nothing
+        LogInfo MODULE_NAME, "- RibbonManager terminado"
+    End If
+    
+    ' 5. OpportunityManager
+    If Not mOpportunityMgr Is Nothing Then
+        Set mOpportunityMgr = Nothing
+        LogInfo MODULE_NAME, "- OpportunityManager terminado"
+    End If
+    
+    ' 4. FileManager
+    If Not mFileManager Is Nothing Then
+        Set mFileManager = Nothing
+        LogInfo MODULE_NAME, "- FileManager terminado"
+    End If
+    
+    ' 3. Contexto Excel
+    If Not mExcelContext Is Nothing Then
+        mExcelContext.Terminate
+        Set mExcelContext = Nothing
+        LogInfo MODULE_NAME, "- Contexto Excel terminado"
+    End If
+    
+    ' 2. Estado
+    Set mState = Nothing
+    
+    ' 1. Configuración
+    If Not mConfig Is Nothing Then
+        mConfig.SaveToRegistry
+        Set mConfig = Nothing
+        LogInfo MODULE_NAME, "- Configuración guardada"
+    End If
+    
+    mIsInitialized = False
+    LogInfo MODULE_NAME, "Aplicación terminada correctamente"
+    
+    On Error GoTo 0
+End Sub
+
+' ==========================================
+' FINALIZER (SEGURIDAD)
+' ==========================================
+
+Private Sub Class_Terminate()
+    ' Backup de seguridad si se olvida llamar Terminate()
+    If mIsInitialized Then
+        LogWarning MODULE_NAME, "Class_Terminate: Terminate() no fue llamado explícitamente"
+        Terminate
+    End If
+End Sub
