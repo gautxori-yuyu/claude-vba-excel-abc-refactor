@@ -1,44 +1,15 @@
 Attribute VB_Name = "mod_Logger"
-'@Folder("2-Infrastructure.Logging")
-Option Explicit
-
-' ===============================================================================
-' MODULO: mod_Logger
-' ===============================================================================
-' PROPOSITO: Sistema de logging centralizado para toda la aplicación
-' MIGRADO DESDE: main:mod_Logger.bas (223 lineas)
-' ===============================================================================
-'
+' ==========================================
+' MODULO DE LOGGING CENTRALIZADO
+' ==========================================
 ' Proporciona funciones de logging consistentes para toda la aplicacion.
 ' Soporta diferentes niveles de log y salida a Debug.Print o archivo.
-'
-' RESPONSABILIDADES:
-' - Registrar mensajes con diferentes niveles de severidad
-' - Escribir logs a Debug.Print y/o archivo de texto
-' - Formatear mensajes con timestamp y nivel
-' - Gestionar archivo de log (crear, limpiar, abrir)
-'
-' NIVELES DE LOG:
-' - LOG_DEBUG: Mensajes de depuración (solo desarrollo)
-' - LOG_INFO: Información general
-' - LOG_WARNING: Advertencias
-' - LOG_ERROR: Errores recuperables
-' - LOG_CRITICAL: Errores críticos
-'
-' USO:
-'   ' Inicializar al inicio de la aplicación (ThisWorkbook_Open)
-'   InitLogger LOG_DEBUG, True, "C:\Logs\ABC_App.log"
-'
-'   ' Registrar mensajes
-'   LogInfo "clsApplication", "Aplicación inicializada correctamente"
-'   LogError "clsFileManager", "Error abriendo archivo", Err.Number, Err.Description
-'
-' ===============================================================================
-
-' ==========================================
-' ENUMERACIONES
 ' ==========================================
 
+'@Folder "2-Servicios.Configuracion"
+Option Explicit
+
+' Niveles de logging
 Public Enum LogLevel
     LOG_DEBUG = 0
     LOG_INFO = 1
@@ -47,20 +18,35 @@ Public Enum LogLevel
     LOG_CRITICAL = 4
 End Enum
 
-' ==========================================
-' VARIABLES PRIVADAS
-' ==========================================
-
+' Configuracion del logger
 Private mMinLevel As LogLevel
 Private mLogToFile As Boolean
 Private mLogFilePath As String
 Private mIncludeTimestamp As Boolean
 
 ' ==========================================
+' MACROS
+' ==========================================
+
+'@Description: Abre el fichero de log
+Public Sub AbrirLog()
+Attribute AbrirLog.VB_ProcData.VB_Invoke_Func = " \n0"
+    On Error Resume Next
+    Dim logPath As String
+    logPath = GetLogFilePath()
+
+    If Len(Dir(logPath)) > 0 Then
+        Shell "notepad.exe """ & logPath & """", vbNormalFocus
+    Else
+        MsgBox "El fichero de log no existe aun: " & logPath, vbInformation
+    End If
+    On Error GoTo 0
+End Sub
+
+' ==========================================
 ' INICIALIZACION
 ' ==========================================
 
-'@Description: Inicializa el sistema de logging
 Public Sub InitLogger(Optional ByVal minLevel As LogLevel = LOG_DEBUG, _
                       Optional ByVal logToFile As Boolean = False, _
                       Optional ByVal logFilePath As String = "")
@@ -166,7 +152,7 @@ Private Function FormatLogMessage(ByVal level As LogLevel, _
                                   ByVal message As String) As String
     Dim prefix As String
     Dim source64 As String * 32
-    LSet source64 = "[" & Left(source, 30) & "]" ' Alinea a la izquierda y rellena con espacios hasta 32
+    LSet source64 = "[" & Left(source, 30) & "]" ' Alinea a la izquierda y rellena con espacios hasta 64
 
     ' Prefijo segun nivel
     Select Case level
@@ -235,22 +221,3 @@ Attribute GetLogFilePath.VB_Description = "[mod_Logger] Obtiene la ruta del arch
 Attribute GetLogFilePath.VB_ProcData.VB_Invoke_Func = " \n23"
     GetLogFilePath = mLogFilePath
 End Function
-
-'@Description: Abre el fichero de log en Notepad
-Public Sub AbrirLog()
-Attribute AbrirLog.VB_ProcData.VB_Invoke_Func = " \n0"
-    On Error Resume Next
-    Dim logPath As String
-    logPath = GetLogFilePath()
-
-    If Len(Dir(logPath)) > 0 Then
-        Shell "notepad.exe """ & logPath & """", vbNormalFocus
-    Else
-        MsgBox "El fichero de log no existe aun: " & logPath, vbInformation
-    End If
-    On Error GoTo 0
-End Sub
-
-' ==========================================
-' FIN DE MOD_LOGGER
-' ==========================================

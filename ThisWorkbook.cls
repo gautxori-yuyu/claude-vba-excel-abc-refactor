@@ -39,43 +39,28 @@ End Function
 Private Sub Workbook_Open()
     ' 1. Limpiar logs antiguos
     RemoveOldLogs
-    
+
     ' 2. Inicializar logger
     InitLogger LOG_DEBUG, True, ThisWorkbook.Path & "\ABC_Log_" & Format(Now, "yyyy-mm-dd_hh-nn") & ".txt"
     LogInfo "ThisWorkbook", "Iniciando aplicación..."
-    
-    ' 3. Auto-instalación si es necesario
-    AutoInstalador
-    
-    ' 4. Registrar UDFs
-    AutoRegistrarTodasLasUDFs
-    
-    ' 5. Atajos de teclado
-    Application.OnKey "^+R", "ToggleRibbonTab"
-    
-    ' 6. Inicializar aplicación
+
+    ' 3. Inicializar aplicación
     App.Initialize
-    
+
     LogInfo "ThisWorkbook", "Aplicación iniciada correctamente"
 End Sub
 
 Private Sub Workbook_BeforeClose(Cancel As Boolean)
     On Error Resume Next
-    
+
     LogInfo "ThisWorkbook", "Cerrando aplicación..."
-    
-    ' 1. Quitar atajos de teclado
-    Application.OnKey "^+R"
-    
-    ' 2. Terminar aplicación
+
+    ' Terminar aplicación
     If Not mApp Is Nothing Then
         mApp.Terminate
         Set mApp = Nothing
     End If
-    
-    ' 3. Desregistrar UDFs
-    DesregistrarTodasLasUDFs
-    
+
     LogInfo "ThisWorkbook", "Aplicación cerrada"
     On Error GoTo 0
 End Sub
